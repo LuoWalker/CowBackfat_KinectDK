@@ -150,10 +150,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="AboutCamera.cpp" />
     <ClCompile Include="GetPcd.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AboutCamera.h" />
     <ClInclude Include="GetPcd.h" />
   </ItemGroup>
   <ItemGroup>

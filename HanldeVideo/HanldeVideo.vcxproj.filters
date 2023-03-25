@@ -24,9 +24,15 @@
     <ClCompile Include="GetPcd.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="AboutCamera.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GetPcd.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="AboutCamera.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

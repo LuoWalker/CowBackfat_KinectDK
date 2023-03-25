@@ -1,20 +1,7 @@
 #define _CRT_SECURE_NO_WARNINGS
-#pragma comment(lib, "k4a.lib")
-#include <stdio.h>
-#include <k4a/k4a.h>
-#include <k4arecord/record.h>
-#include <k4arecord/playback.h>
-#include <iostream>
-#include <stdlib.h>
-#include <k4a/k4a.hpp>
-#include <cstdlib>
-#include <fstream>
-#include <string>
-#include <vector>
-#include <opencv2/opencv.hpp>
-#include <Python.h>
-
 #define PROCESS_FRAME_NUMBER 1000
+#pragma comment(lib, "k4a.lib")
+#include "GetPcd.h"
 
 typedef struct VERTEX_3D
 {
@@ -69,7 +56,7 @@ int Video2Txt(const char* path, int start_second) {
 	result = k4a_playback_get_record_configuration(handle, &record_config);
 	if (result != K4A_RESULT_SUCCEEDED)
 	{
-		printf("Failed to get record configuration for file: devixe%s\n", filename);
+		printf("Failed to get record configuration for file: device%s\n", filename);
 		k4a_playback_close(handle);
 		handle = NULL;
 
@@ -107,48 +94,6 @@ int Video2Txt(const char* path, int start_second) {
 		int	depth_image_height_pixels = k4a_image_get_height_pixels(depthImage);
 		k4a_transformation_t transformation = NULL;		//转换
 		transformation = k4a_transformation_create(&calibration);
-
-		////输出相机参数
-		//auto calib = calibration.depth_camera_calibration;
-		//cout << "深度相机内参：" << endl;
-		//cout << "resolution width: " << calib.resolution_width << endl;
-		//cout << "resolution height: " << calib.resolution_height << endl;
-		//cout << "principal point x: " << calib.intrinsics.parameters.param.cx << endl;
-		//cout << "principal point y: " << calib.intrinsics.parameters.param.cy << endl;
-		//cout << "focal length x: " << calib.intrinsics.parameters.param.fx << endl;
-		//cout << "focal length y: " << calib.intrinsics.parameters.param.fy << endl;
-		//cout << "radial distortion coefficients:" << endl;
-		//cout << "k1: " << calib.intrinsics.parameters.param.k1 << endl;
-		//cout << "k2: " << calib.intrinsics.parameters.param.k2 << endl;
-		//cout << "k3: " << calib.intrinsics.parameters.param.k3 << endl;
-		//cout << "k4: " << calib.intrinsics.parameters.param.k4 << endl;
-		//cout << "k5: " << calib.intrinsics.parameters.param.k5 << endl;
-		//cout << "k6: " << calib.intrinsics.parameters.param.k6 << endl;
-		//cout << "center of distortion in Z=1 plane, x: " << calib.intrinsics.parameters.param.codx << endl;
-		//cout << "center of distortion in Z=1 plane, y: " << calib.intrinsics.parameters.param.cody << endl;
-		//cout << "tangential distortion coefficient x: " << calib.intrinsics.parameters.param.p1 << endl;
-		//cout << "tangential distortion coefficient y: " << calib.intrinsics.parameters.param.p2 << endl;
-		//cout << "metric radius: " << calib.intrinsics.parameters.param.metric_radius << endl;
-		//calib = calibration.color_camera_calibration;
-		//cout << "彩色相机内参：" << endl;
-		//cout << "resolution width: " << calib.resolution_width << endl;
-		//cout << "resolution height: " << calib.resolution_height << endl;
-		//cout << "principal point x: " << calib.intrinsics.parameters.param.cx << endl;
-		//cout << "principal point y: " << calib.intrinsics.parameters.param.cy << endl;
-		//cout << "focal length x: " << calib.intrinsics.parameters.param.fx << endl;
-		//cout << "focal length y: " << calib.intrinsics.parameters.param.fy << endl;
-		//cout << "radial distortion coefficients:" << endl;
-		//cout << "k1: " << calib.intrinsics.parameters.param.k1 << endl;
-		//cout << "k2: " << calib.intrinsics.parameters.param.k2 << endl;
-		//cout << "k3: " << calib.intrinsics.parameters.param.k3 << endl;
-		//cout << "k4: " << calib.intrinsics.parameters.param.k4 << endl;
-		//cout << "k5: " << calib.intrinsics.parameters.param.k5 << endl;
-		//cout << "k6: " << calib.intrinsics.parameters.param.k6 << endl;
-		//cout << "center of distortion in Z=1 plane, x: " << calib.intrinsics.parameters.param.codx << endl;
-		//cout << "center of distortion in Z=1 plane, y: " << calib.intrinsics.parameters.param.cody << endl;
-		//cout << "tangential distortion coefficient x: " << calib.intrinsics.parameters.param.p1 << endl;
-		//cout << "tangential distortion coefficient y: " << calib.intrinsics.parameters.param.p2 << endl;
-		//cout << "metric radius: " << calib.intrinsics.parameters.param.metric_radius << endl;
 
 
 		//设置正确的转换视点后的彩色图像格式：彩色类型为BRGA32，图像宽高为深度图像宽高
