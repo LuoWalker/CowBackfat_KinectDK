@@ -34,7 +34,7 @@ int main() {
 	pcl::visualization::PCLVisualizer viewer("Cloud Viewer");     //创建viewer对象
 	viewer.addCoordinateSystem();
 
-	int v1(0), v2(1);	// 定义左右窗口
+	int v1(0), v2(1), v3(2);	// 定义左右窗口
 
 	// 目标点云，背景
 	viewer.createViewPort(0, 0, 0.5, 1, v1);	// 对角线坐标（x1,y1,x2,y2）
@@ -50,11 +50,32 @@ int main() {
 	pcl::PointCloud<pcl::PointXYZ>::Ptr source_cloud_result(new pcl::PointCloud<pcl::PointXYZ>);
 	source_cloud_result = removeBackground(target_cloud, source_cloud);
 
-	// 处理后点云，物体+部分离散点
+	// 去背景点云，物体+部分离散点
 	viewer.createViewPort(0.5, 0, 1, 1, v2);
 	viewer.setBackgroundColor(0, 0, 0, v2);
-	pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> white2(source_cloud_result, 255, 255, 255);
-	viewer.addPointCloud(source_cloud_result, white2, "source cloud result", v2);
+	//pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> white2(source_cloud_result, 255, 255, 255);
+	//viewer.addPointCloud(source_cloud_result, white2, "source cloud result", v2);
+
+	// StatisticalOutlierRemoval滤波
+	pcl::PointCloud<pcl::PointXYZ>::Ptr source_cloud_denoise(new pcl::PointCloud<pcl::PointXYZ>);
+	source_cloud_denoise = removeNoise(source_cloud_result);
+
+	// 滤波后点云，物体
+	pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> white2(source_cloud_denoise, 255, 255, 255);
+	viewer.addPointCloud(source_cloud_denoise, white2, "source cloud denoise", v2);
+
+	// MovingLeastSquares 上采样，平滑处理
+	pcl::PointCloud<pcl::PointNormal>::Ptr source_cloud_smooth(new pcl::PointCloud<pcl::PointNormal>);
+	source_cloud_smooth = smoothByMLS(source_cloud_denoise);
+
+	// 平滑后点云，物体
+	viewer.createViewPort(0.5, 0, 1, 0.5, v3);
+	viewer.setBackgroundColor(0, 0, 0, v3);
+	pcl::visualization::PointCloudColorHandlerCustom<pcl::PointNormal> white3(source_cloud_smooth, 255, 255, 255);
+	viewer.addPointCloud(source_cloud_smooth, white3, "source cloud smooth", v3);
+
+	// 保存点云
+	pcl::io::savePCDFileASCII("../PCD/objectTest.pcd", *source_cloud_denoise);
 
 	while (!viewer.wasStopped()) {
 		viewer.spinOnce();
