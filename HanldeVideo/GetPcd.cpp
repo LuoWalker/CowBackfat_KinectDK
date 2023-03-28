@@ -2,6 +2,18 @@
 #define PROCESS_FRAME_NUMBER 1000
 #pragma comment(lib, "k4a.lib")
 #include "GetPcd.h"
+#include <stdio.h>
+#include <k4a/k4a.h>
+#include <k4arecord/record.h>
+#include <k4arecord/playback.h>
+#include <iostream>
+#include <stdlib.h>
+#include <k4a/k4a.hpp>
+#include <cstdlib>
+#include <fstream>
+#include <vector>
+#include <opencv2/opencv.hpp>
+#include <Python.h>
 
 typedef struct VERTEX_3D
 {
@@ -19,7 +31,7 @@ typedef struct VERTEX_RGB
 
 using namespace std;
 
-int Video2Txt(const char* path, int start_second) {
+int video2Txt(const char* path, int start_second) {
 	const char* filename = path;	//输入的文件路径
 	int no_frame = 0;				//帧序号，从0开始
 	int start_frame = start_second * 30;	//开始帧，用于截取片段
@@ -241,7 +253,7 @@ Exit:
 
 }
 
-void PyTxt2Pcd(string name_txt,string name_pcd) {
+void pyTxt2Pcd(string name_txt,string name_pcd) {
 	Py_SetPythonHome(L"D:\\anaconda3\\envs\\BCS"); // 定义python解释器
 	Py_Initialize(); // 初始化python接口
 	string command = "conda activate BCS";
@@ -269,3 +281,4 @@ void PyTxt2Pcd(string name_txt,string name_pcd) {
 	}
 	Py_Finalize(); //结束python接口
 }
+
