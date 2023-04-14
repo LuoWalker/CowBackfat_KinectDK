@@ -1,3 +1,5 @@
+#define myPointXYZ pcl::PointCloud<pcl::PointXYZ>
+#define myPointNormal pcl::PointCloud<pcl::PointNormal>
 #include "GetObj.h"
 #include <iostream>
 #include <pcl/filters/extract_indices.h>
@@ -11,7 +13,7 @@ using namespace pcl;
 using std::cout;
 using std::endl;
 
-PointCloud<PointXYZ>::Ptr transformByExtrinsics(PointCloud<PointXYZ>::Ptr target_cloud) {
+myPointXYZ::Ptr transformByExtrinsics(myPointXYZ::Ptr target_cloud) {
 	/* 点云变换，按照相机位姿 */
 	Eigen::Matrix4d rotation;
 	rotation << 0.999997, 0.00235355, -0.000991121, -32.072,
@@ -19,15 +21,15 @@ PointCloud<PointXYZ>::Ptr transformByExtrinsics(PointCloud<PointXYZ>::Ptr target
 		0.00120969, -0.0947606, 0.995499, 3.74932,
 		0.0, 0.0, 0.0, 1.0;// 旋转矩阵
 
-	PointCloud<PointXYZ>::Ptr target_cloud_trans(new PointCloud<PointXYZ>);
+	myPointXYZ::Ptr target_cloud_trans(new myPointXYZ);
 	transformPointCloud(*target_cloud, *target_cloud_trans, rotation);
 	return target_cloud_trans;
 }
 
-PointCloud<PointXYZ>::Ptr removeBackground(PointCloud<PointXYZ>::Ptr target_cloud, PointCloud<PointXYZ>::Ptr source_cloud) {
+myPointXYZ::Ptr removeBackground(myPointXYZ::Ptr target_cloud, myPointXYZ::Ptr source_cloud) {
 	/* 点云相减 */
 	float resolution = 128.0f;
-	PointCloud<PointXYZ>::Ptr source_cloud_result(new PointCloud<PointXYZ>);
+	myPointXYZ::Ptr source_cloud_result(new myPointXYZ);
 	octree::OctreePointCloudChangeDetector<PointXYZ> octree(resolution);
 	PointIndices::Ptr inliers(new PointIndices());
 
@@ -52,8 +54,8 @@ PointCloud<PointXYZ>::Ptr removeBackground(PointCloud<PointXYZ>::Ptr target_clou
 	return source_cloud_result;
 }
 
-PointCloud<PointXYZ>::Ptr removeNoise(PointCloud<PointXYZ>::Ptr target_cloud) {
-	PointCloud<PointXYZ>::Ptr target_cloud_denoise(new PointCloud<PointXYZ>);
+myPointXYZ::Ptr removeNoise(myPointXYZ::Ptr target_cloud) {
+	myPointXYZ::Ptr target_cloud_denoise(new myPointXYZ);
 
 	StatisticalOutlierRemoval<PointXYZ> sor;
 	sor.setInputCloud(target_cloud);
@@ -64,8 +66,8 @@ PointCloud<PointXYZ>::Ptr removeNoise(PointCloud<PointXYZ>::Ptr target_cloud) {
 	return target_cloud_denoise;
 }
 
-PointCloud<PointNormal>::Ptr smoothByMLS(PointCloud<PointXYZ>::Ptr target_cloud) {
-	PointCloud<PointNormal>::Ptr target_cloud_smooth(new PointCloud <PointNormal>);
+myPointNormal::Ptr smoothByMLS(myPointXYZ::Ptr target_cloud) {
+	myPointNormal::Ptr target_cloud_smooth(new myPointNormal);
 	search::KdTree<PointXYZ>::Ptr kdtree;
 	MovingLeastSquares<PointXYZ, PointNormal> mls;
 	mls.setInputCloud(target_cloud);
