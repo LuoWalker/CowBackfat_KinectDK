@@ -14,6 +14,7 @@
 #include <vector>
 #include <opencv2/opencv.hpp>
 #include <Python.h>
+#include <direct.h>
 
 typedef struct VERTEX_3D
 {
@@ -31,8 +32,9 @@ typedef struct VERTEX_RGB
 
 using namespace std;
 
-int video2Txt(const char* path, int start_second) {
-	const char* filename = path;	//输入的文件路径
+int video2Txt(string filename, int start_second) {
+	string temp = "../Video/" + filename;
+	const char* path = temp.c_str();	//输入的文件路径
 	int no_frame = 0;				//帧序号，从0开始
 	int start_frame = start_second * 30;	//开始帧，用于截取片段
 
@@ -44,10 +46,10 @@ int video2Txt(const char* path, int start_second) {
 	k4a_result_t result = K4A_RESULT_SUCCEEDED;		// result code
 
 	//打开文件
-	result = k4a_playback_open(filename, &handle);
+	result = k4a_playback_open(path, &handle);
 	if (result != K4A_RESULT_SUCCEEDED)
 	{
-		printf("Failed to open file: %s\n", filename);
+		printf("Failed to open file: %s\n", path);
 		k4a_playback_close(handle);
 		handle = NULL;
 
@@ -58,7 +60,7 @@ int video2Txt(const char* path, int start_second) {
 	result = k4a_playback_set_color_conversion(handle, K4A_IMAGE_FORMAT_COLOR_BGRA32);
 	if (result != K4A_RESULT_SUCCEEDED)
 	{
-		printf("Failed to get record configuration for file: devixe%s\n", filename);
+		printf("Failed to get record configuration for file: devixe%s\n", path);
 		k4a_playback_close(handle);
 		handle = NULL;
 
@@ -68,7 +70,7 @@ int video2Txt(const char* path, int start_second) {
 	result = k4a_playback_get_record_configuration(handle, &record_config);
 	if (result != K4A_RESULT_SUCCEEDED)
 	{
-		printf("Failed to get record configuration for file: device%s\n", filename);
+		printf("Failed to get record configuration for file: device%s\n", path);
 		k4a_playback_close(handle);
 		handle = NULL;
 
@@ -79,13 +81,13 @@ int video2Txt(const char* path, int start_second) {
 	k4a_stream_result_t stream_result = k4a_playback_get_next_capture(handle, &capture);
 	if (stream_result == K4A_STREAM_RESULT_EOF)
 	{
-		printf("ERROR: Recording file is empty: %s\n", filename);
+		printf("ERROR: Recording file is empty: %s\n", path);
 		result = K4A_RESULT_FAILED;
 		goto Exit;
 	}
 	else if (stream_result == K4A_STREAM_RESULT_FAILED)
 	{
-		printf("ERROR: Failed to read first capture from file: %s\n", filename);
+		printf("ERROR: Failed to read first capture from file: %s\n", path);
 		result = K4A_RESULT_FAILED;
 		goto Exit;
 	}
@@ -119,16 +121,16 @@ int video2Txt(const char* path, int start_second) {
 			goto Exit;
 		}
 
-
 		int t = 6;
 		int cur_frame = no_frame;
 		//进行处理并不断获取新的捕获
 
 		while (no_frame <= PROCESS_FRAME_NUMBER)
 		{
+			int action = 0;
 			t--;
 			//前几帧无彩色图像（捕获的彩色图像为空指针），故忽略前几帧
-			if (t <= 0 && cur_frame>=start_frame) {
+			if (t <= 0 && cur_frame >= start_frame) {
 				vector<VERTEX3D> g_vet;			//存储三维坐标
 				vector<VERTEXRGB> g_vet_color;	//存储相应RGB信息
 				VERTEXRGB v_rgb;				//存储颜色信息
@@ -158,31 +160,28 @@ int video2Txt(const char* path, int start_second) {
 					goto Exit;
 				}
 
-				cout << "处理第 " << no_frame << "帧图像" << endl;
+				cout << "处理第 " << no_frame << " 帧图像" << endl;
 
-				//输出深度图视角的彩色图
-				cv::Mat rgbdframe = cv::Mat(k4a_image_get_height_pixels(dest_color_image), k4a_image_get_width_pixels(dest_color_image), CV_8UC4, k4a_image_get_buffer(dest_color_image));
-				cv::Mat cv_rgbdImage_8U;
-				rgbdframe.convertTo(cv_rgbdImage_8U, CV_8U, 1);
-				string filename_rgbd = "RGBD_img\\" + to_string(no_frame) + ".png";
-				imwrite(filename_rgbd, cv_rgbdImage_8U);
-
-				//输出彩色原图
-				cv::Mat rgbframe = cv::Mat(k4a_image_get_height_pixels(src_colorImage), k4a_image_get_width_pixels(src_colorImage), CV_8UC4, k4a_image_get_buffer(src_colorImage));
-				cv::Mat cv_rgbImage_8U;
-				rgbframe.convertTo(cv_rgbImage_8U, CV_8U, 1);
-				string filename_rgb = "RGB_img\\" + to_string(no_frame) + ".png";
-				imwrite(filename_rgb, cv_rgbImage_8U);
+				////输出彩色原图
+				//cv::Mat rgbframe = cv::Mat(k4a_image_get_height_pixels(src_colorImage), k4a_image_get_width_pixels(src_colorImage), CV_8UC4, k4a_image_get_buffer(src_colorImage));
+				//cv::Mat cv_rgbImage_8U;
+				//rgbframe.convertTo(cv_rgbImage_8U, CV_8U, 1);
+				//string filename_rgb = "RGB_img\\" + to_string(no_frame) + ".png";
+				//imwrite(filename_rgb, cv_rgbImage_8U);
 
 
-				FILE* fp = NULL;
-				string outfile = "PointCloudData\\" + to_string(no_frame) + ".txt";
-				fp = fopen(outfile.c_str(), "w");//在项目目录下输出文件名
+				//if (0 != _access(outpath_txt.c_str(), 0)) {
+				//	_mkdir(outpath_txt.c_str());
+				//}
+				//string outfile_txt = outpath_txt + to_string(no_frame) + ".txt";
+				//fp = fopen(outfile_txt.c_str(), "w");//在项目目录下输出文件名
+
 				//坐标转换所需变量
 				k4a_float2_t p;//二维像素坐标作为输入
 				k4a_float3_t ray;//三维世界坐标作为输出
 				int valid;//输出是否有效的标记，值为1表明转化结果有效，为0无效
 				int i = 0;
+				int count_depth_near = 0;//统计深度较小的点的个数（说明有物体）
 				//开始对每个像素坐标处理
 				for (int row = 0; row < k4a_image_get_width_pixels(depthImage); row++)
 				{
@@ -213,17 +212,49 @@ int video2Txt(const char* path, int start_second) {
 								g_vet_color.push_back(v_rgb);
 								i++;
 							}
+							//统计深度较小的点的个数（说明有物体）
+							if (pixelValue < 2000) {
+								count_depth_near++;
+							}
 						}
 					}
 				}
-				//fprintf(fp, "%d\n", i);
-				for (int j = 0; j < i; j++)
-				{
-					//fprintf(fp, "%d %d %d\n", g_vet[j].x, g_vet[j].y, g_vet[j].z);
-					fprintf(fp, "%d %d %d %f %f %f\n", g_vet[j].x, g_vet[j].y, g_vet[j].z, ((float)g_vet_color[j].r / 255), ((float)g_vet_color[j].g / 255), ((float)g_vet_color[j].b / 255));
-				}
-				fclose(fp);
 
+				/*FILE* fp_count = NULL;
+				string outpath_count = "./count.txt";
+				fp_count = fopen(outpath_count.c_str(), "a");
+				fprintf(fp_count,"%d:%d\n",no_frame,count_depth_near);
+				fclose(fp_count);*/
+
+				FILE* fp = NULL;
+				string outpath_txt = "PointCloudData\\" + filename + "\\";
+
+				if (count_depth_near>120000) {
+					//输出深度图视角的彩色图
+					cv::Mat rgbdframe = cv::Mat(k4a_image_get_height_pixels(dest_color_image), k4a_image_get_width_pixels(dest_color_image), CV_8UC4, k4a_image_get_buffer(dest_color_image));
+					cv::Mat cv_rgbdImage_8U;
+					rgbdframe.convertTo(cv_rgbdImage_8U, CV_8U, 1);
+					string outpath_rgbd = "RGBD_img\\" + filename + "\\";
+					if (0 != _access(outpath_rgbd.c_str(), 0)) {
+						_mkdir(outpath_rgbd.c_str());
+					}
+					string outfile_rgbd = outpath_rgbd + to_string(no_frame) + ".png";
+					imwrite(outfile_rgbd, cv_rgbdImage_8U);
+
+					//输出txt点云
+					if (0 != _access(outpath_txt.c_str(), 0)) {
+						_mkdir(outpath_txt.c_str());
+					}
+					string outfile_txt = outpath_txt + to_string(no_frame) + ".txt";
+					fp = fopen(outfile_txt.c_str(), "w");//在项目目录下输出文件名
+					//fprintf(fp, "%d\n", i); // 点云总数
+					for (int j = 0; j < i; j++)
+					{
+						//fprintf(fp, "%d %d %d\n", g_vet[j].x, g_vet[j].y, g_vet[j].z);
+						fprintf(fp, "%d %d %d %f %f %f\n", g_vet[j].x, g_vet[j].y, g_vet[j].z, ((float)g_vet_color[j].r / 255), ((float)g_vet_color[j].g / 255), ((float)g_vet_color[j].b / 255));
+					}
+					fclose(fp);
+				}
 				//此时已可以利用深度图进行处理，但opencv仅支持显示8位灰度图，若要可视化，则需进一步转化
 			}
 			k4a_capture_release(capture);
@@ -235,7 +266,7 @@ int video2Txt(const char* path, int start_second) {
 				cur_frame++;
 				break;
 			case K4A_WAIT_RESULT_FAILED:
-				printf("ERROR: Failed to read next capture from file: %s\n", filename);
+				printf("ERROR: Failed to read next capture from file: %s\n", path);
 				goto Exit;
 			case K4A_STREAM_RESULT_EOF:
 				printf("%d\n", no_frame);
@@ -253,7 +284,7 @@ Exit:
 
 }
 
-void pyTxt2Pcd(string name_txt,string name_pcd) {
+void pyTxt2Pcd(string name_txt, string name_pcd) {
 	Py_SetPythonHome(L"D:\\anaconda3\\envs\\BCS"); // 定义python解释器
 	Py_Initialize(); // 初始化python接口
 	string command = "conda activate BCS";
