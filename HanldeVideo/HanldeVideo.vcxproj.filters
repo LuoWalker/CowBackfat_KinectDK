@@ -14,7 +14,7 @@
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
     <Filter Include="脚本文件">
-      <UniqueIdentifier>{72a21062-be45-4665-81ac-6026db90048d}</UniqueIdentifier>
+      <UniqueIdentifier>{18b9b142-2c18-4c6e-9cc4-87702cbb7dae}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -37,12 +37,9 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
+    <None Include="packages.config" />
     <None Include="Script\get_pcd.py">
       <Filter>脚本文件</Filter>
     </None>
-    <None Include="Script\test.py">
-      <Filter>脚本文件</Filter>
-    </None>
-    <None Include="packages.config" />
   </ItemGroup>
 </Project>
