@@ -4,6 +4,8 @@
 ## Get latest from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
 Video
+HanldeVideo/PointCloudData/*
+HanldeVideo/RGBD_img/*
 
 # User-specific files
 *.rsuser
