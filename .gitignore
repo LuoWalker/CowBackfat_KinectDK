@@ -6,6 +6,7 @@
 Video
 HanldeVideo/PointCloudData/*
 HanldeVideo/RGBD_img/*
+HanldeVideo/RGB_img/*
 
 # User-specific files
 *.rsuser
