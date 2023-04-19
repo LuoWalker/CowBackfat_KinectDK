@@ -39,7 +39,8 @@ int main() {
 		cout << "error input!" << endl;
 		return -1;
 	}
-	downSampleVoxelization(result_cloud);
+	limitHeight(result_cloud);
+	//downSampleVoxelization(result_cloud);
 
 
 	/* ±£´æµãÔÆ */
