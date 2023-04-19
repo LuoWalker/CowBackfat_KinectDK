@@ -21,9 +21,15 @@
     <ClCompile Include="GetObj.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="GetFeature.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GetObj.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="GetFeature.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

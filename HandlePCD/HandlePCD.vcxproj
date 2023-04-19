@@ -150,10 +150,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="GetFeature.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="GetObj.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="GetFeature.h" />
     <ClInclude Include="GetObj.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
