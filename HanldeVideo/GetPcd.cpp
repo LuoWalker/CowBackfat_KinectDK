@@ -229,7 +229,7 @@ int video2Txt(string filename, int start_second) {
 				FILE* fp = NULL;
 				string outpath_txt = "PointCloudData\\" + filename + "\\";
 
-				if (count_depth_near>120000) {
+				if (count_depth_near > 120000) {
 					//输出深度图视角的彩色图
 					cv::Mat rgbdframe = cv::Mat(k4a_image_get_height_pixels(dest_color_image), k4a_image_get_width_pixels(dest_color_image), CV_8UC4, k4a_image_get_buffer(dest_color_image));
 					cv::Mat cv_rgbdImage_8U;
@@ -284,7 +284,7 @@ Exit:
 
 }
 
-void pyTxt2Pcd(string name_txt, string name_pcd) {
+void pyTxt2Pcd(string txt_dir) {
 	Py_SetPythonHome(L"D:\\anaconda3\\envs\\BCS"); // 定义python解释器
 	Py_Initialize(); // 初始化python接口
 	string command = "conda activate BCS";
@@ -296,12 +296,17 @@ void pyTxt2Pcd(string name_txt, string name_pcd) {
 	PyRun_SimpleString("print(os.getcwd())");
 
 	PyObject *pModule, *pFunc, *pArgs;
+	PyObject *result;
+	const char* txt_dirc = txt_dir.c_str();
+	cout << txt_dirc;
 
 	if (pModule = PyImport_ImportModule("get_pcd")) {
 		if (pFunc = PyObject_GetAttrString(pModule, "txt_pcd")) {
-			pArgs = Py_BuildValue("ss", name_txt, name_pcd);
+			pArgs = PyTuple_New(1);
+			PyTuple_SetItem(pArgs, 0, Py_BuildValue("s", txt_dir));
 
-			PyObject_CallObject(pFunc, pArgs); // 调用函数
+			result = PyObject_CallObject(pFunc, pArgs); // 调用函数
+
 		}
 		else {
 			cout << "导入失败" << endl;

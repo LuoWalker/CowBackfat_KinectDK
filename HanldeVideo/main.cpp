@@ -5,10 +5,10 @@
 using namespace std;
 
 int main() {
-	string filename = "03218.mkv";
+	string filename = "0321.mkv";
 
-	video2Txt(filename, 0);
-	//pyTxt2Pcd("1.txt", "test.pcd");
+	//video2Txt(filename, 0);
+	pyTxt2Pcd(filename);
 	//PrintCalibrationFromFile(filename.c_str());
 
 	return 0;
