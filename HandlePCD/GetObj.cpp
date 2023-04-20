@@ -87,7 +87,7 @@ myPointNormal::Ptr smoothByMLS(myPointXYZ::Ptr target_cloud) {
 myPointXYZ::Ptr getObj(myPointXYZ::Ptr target_cloud, myPointXYZ::Ptr source_cloud) {
 	// 可视化点云
 	visualization::PCLVisualizer viewer("Cloud Viewer");     //创建viewer对象
-	viewer.addCoordinateSystem();
+	viewer.addCoordinateSystem(1000);
 
 	int v1(0), v2(1), v3(2);	// 定义左右窗口
 
