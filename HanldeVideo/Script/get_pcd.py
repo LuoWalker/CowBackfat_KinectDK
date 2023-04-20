@@ -1,30 +1,53 @@
+import os
 import open3d as o3d
 import numpy as np
 
-def txt_pcd(name_txt, name_pcd):
-	# 打开文件
-	path = "./PointCloudData/" + name_txt
-	source = o3d.geometry.PointCloud()
-	m1 = np.loadtxt(path)[:, 0:3]
-	source.points = o3d.utility.Vector3dVector(m1)
 
-	# 可视化
-	origin = source.get_center()  # 坐标系中心
-	coordinate = o3d.geometry.TriangleMesh.create_coordinate_frame(
-		size=0.5, origin=origin - 0.5)  # 坐标系
-	o3d.visualization.draw_geometries([source, coordinate],
-										width=700,
-										height=700,
-										)
+def txt_pcd(*txt_dir):
+    # 遍历所有txt点云，并批量转为PCD
+    if (len(txt_dir) == 1):
+        dir_name = txt_dir[0]
+        path = "./PointCloudData/" + dir_name
+        filenames = os.listdir(path)
+        for filename in filenames:
+            txt_path = path + '/' + filename
+            # 保存点云信息
+            source = o3d.geometry.PointCloud()
+            xyz = np.loadtxt(txt_path)[:, 0:3]
+            color = np.loadtxt(txt_path)[:, 3:6]
+            source.points = o3d.utility.Vector3dVector(xyz)
+            source.colors = o3d.utility.Vector3dVector(color)
 
-	# 保存点云信息
-	print("准备输出文件")
-	o3d.io.write_point_cloud("./../../PCD/" + name_pcd, source)
+            pcd_path = dir_name[:4] + '-' + filename.replace('txt', 'pcd')
+            if (o3d.io.write_point_cloud("./../PCD/origin/" + pcd_path,
+                                         source,
+                                         write_ascii=True)):
+                print("保存成功" + pcd_path)
+            else:
+                print("保存失败" + pcd_path)
+    if (len(txt_dir) == 0):
+        path = "./PointCloudData"
+        for dirpath, dirnames, filenames in os.walk(path):
+            for dirname in dirnames:
+                filenames = os.listdir(dirpath + '/' + dirname)
+                for filename in filenames:
+                    txt_path = dirpath + '/' + dirname + '/' + filename
+                    # 保存点云信息
+                    source = o3d.geometry.PointCloud()
+                    xyz = np.loadtxt(txt_path)[:, 0:3]
+                    color = np.loadtxt(txt_path)[:, 3:6]
+                    source.points = o3d.utility.Vector3dVector(xyz)
+                    source.colors = o3d.utility.Vector3dVector(color)
 
-
-# def main():
-#    txt_pcd("1.txt", "test.pcd")
+                    pcd_path = dirname[:4] + '-' + filename.replace(
+                        'txt', 'pcd')
+                    if (o3d.io.write_point_cloud("./../PCD/origin/" + pcd_path,
+                                                 source,
+                                                 write_ascii=True)):
+                        print("保存成功" + pcd_path)
+                    else:
+                        print("保存失败" + pcd_path)
 
 
 # if __name__ == "__main__":
-#     main()
+# 	txt_pcd()
