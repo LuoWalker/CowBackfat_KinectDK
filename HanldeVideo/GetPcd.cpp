@@ -1,11 +1,7 @@
 #define _CRT_SECURE_NO_WARNINGS
-#define PROCESS_FRAME_NUMBER 1000
 #pragma comment(lib, "k4a.lib")
 #include "GetPcd.h"
 #include <stdio.h>
-#include <k4a/k4a.h>
-#include <k4arecord/record.h>
-#include <k4arecord/playback.h>
 #include <iostream>
 #include <stdlib.h>
 #include <k4a/k4a.hpp>
@@ -15,6 +11,8 @@
 #include <opencv2/opencv.hpp>
 #include <Python.h>
 #include <direct.h>
+using namespace std;
+
 
 typedef struct VERTEX_3D
 {
@@ -22,28 +20,26 @@ typedef struct VERTEX_3D
 	int y;
 	int z;
 } VERTEX3D;
-
 typedef struct VERTEX_RGB
 {
-	int r;
-	int g;
-	int b;
+	float r;
+	float g;
+	float b;
 } VERTEXRGB;
-
-using namespace std;
 
 int video2Txt(string filename, int start_second) {
 	string temp = "../Video/" + filename;
 	const char* path = temp.c_str();	//输入的文件路径
 	int no_frame = 0;				//帧序号，从0开始
 	int start_frame = start_second * 30;	//开始帧，用于截取片段
+	cout << path << endl;
 
 	//对文件捕获必须的变量
 	k4a_playback_t handle;
 	k4a_record_configuration_t record_config;
 	k4a_capture_t capture;
-	k4a_calibration_t calibration;//校准
-	k4a_result_t result = K4A_RESULT_SUCCEEDED;		// result code
+	k4a_calibration_t calibration;	//校准
+	k4a_result_t result = K4A_RESULT_SUCCEEDED;	// result code
 
 	//打开文件
 	result = k4a_playback_open(path, &handle);
@@ -60,7 +56,7 @@ int video2Txt(string filename, int start_second) {
 	result = k4a_playback_set_color_conversion(handle, K4A_IMAGE_FORMAT_COLOR_BGRA32);
 	if (result != K4A_RESULT_SUCCEEDED)
 	{
-		printf("Failed to get record configuration for file: devixe%s\n", path);
+		printf("Failed to get record configuration for file: device%s\n", path);
 		k4a_playback_close(handle);
 		handle = NULL;
 
@@ -121,16 +117,14 @@ int video2Txt(string filename, int start_second) {
 			goto Exit;
 		}
 
-		int t = 6;
 		int cur_frame = no_frame;
-		//进行处理并不断获取新的捕获
 
-		while (no_frame <= PROCESS_FRAME_NUMBER)
+		//进行处理并不断获取新的捕获，处理结束后循环自动停止
+		while (true)
 		{
 			int action = 0;
-			t--;
 			//前几帧无彩色图像（捕获的彩色图像为空指针），故忽略前几帧
-			if (t <= 0 && cur_frame >= start_frame) {
+			if (cur_frame >= start_frame) {
 				vector<VERTEX3D> g_vet;			//存储三维坐标
 				vector<VERTEXRGB> g_vet_color;	//存储相应RGB信息
 				VERTEXRGB v_rgb;				//存储颜色信息
@@ -154,7 +148,10 @@ int video2Txt(string filename, int start_second) {
 				}
 
 				//将彩色图从彩色相机的视点转换为深度相机的视点（使他们的像素点对应）
-				if (K4A_RESULT_SUCCEEDED != k4a_transformation_color_image_to_depth_camera(transformation, depthImage, src_colorImage, dest_color_image))
+				if (K4A_RESULT_SUCCEEDED != k4a_transformation_color_image_to_depth_camera(transformation,
+					depthImage,
+					src_colorImage,
+					dest_color_image))
 				{
 					printf("Failed to compute transformed color image\n");
 					goto Exit;
@@ -163,7 +160,10 @@ int video2Txt(string filename, int start_second) {
 				cout << "处理第 " << no_frame << " 帧图像" << endl;
 
 				////输出彩色原图
-				//cv::Mat rgbframe = cv::Mat(k4a_image_get_height_pixels(src_colorImage), k4a_image_get_width_pixels(src_colorImage), CV_8UC4, k4a_image_get_buffer(src_colorImage));
+				//cv::Mat rgbframe = cv::Mat(k4a_image_get_height_pixels(src_colorImage),
+				//	k4a_image_get_width_pixels(src_colorImage),
+				//	CV_8UC4,
+				//	k4a_image_get_buffer(src_colorImage));
 				//cv::Mat cv_rgbImage_8U;
 				//rgbframe.convertTo(cv_rgbImage_8U, CV_8U, 1);
 				//string filename_rgb = "RGB_img\\" + to_string(no_frame) + ".png";
@@ -193,13 +193,19 @@ int video2Txt(string filename, int start_second) {
 						v_rgb.g = (int)color_buffer[(size_t(col) * size_t(k4a_image_get_width_pixels(dest_color_image)) + size_t(row)) * size_t(4) + size_t(1)];
 						v_rgb.r = (int)color_buffer[(size_t(col) * size_t(k4a_image_get_width_pixels(dest_color_image)) + size_t(row)) * size_t(4) + size_t(2)];
 
-						short pixelValue = buffer[size_t(col) * size_t(k4a_image_get_width_pixels(depthImage)) + size_t(row)];		//计算深度值
+						short pixelValue = buffer[size_t(col) * size_t(k4a_image_get_width_pixels(depthImage))
+							+ size_t(row)];		//计算深度值
 						if (pixelValue > 0 && pixelValue < 5000) {		//初步筛选有效深度
 							//像素坐标
 							p.xy.x = (float)row;
 							p.xy.y = (float)col;
 							//坐标转换函数（校准类型，要转换的二维像素点坐标，此点深度值，输出相机类型，输出相机类型，输出三维点坐标，有效检测标记）
-							if (K4A_RESULT_FAILED == k4a_calibration_2d_to_3d(&calibration, &p, (float)pixelValue, K4A_CALIBRATION_TYPE_DEPTH, K4A_CALIBRATION_TYPE_DEPTH, &ray, &valid)) {
+							if (K4A_RESULT_FAILED == k4a_calibration_2d_to_3d(&calibration, &p,
+								(float)pixelValue,
+								K4A_CALIBRATION_TYPE_DEPTH,
+								K4A_CALIBRATION_TYPE_DEPTH,
+								&ray, &valid))
+							{
 								printf("ERROR: calibration contained invalid transformation parameters. \n");
 								goto Exit;
 							}
@@ -231,7 +237,9 @@ int video2Txt(string filename, int start_second) {
 
 				if (count_depth_near > 120000) {
 					//输出深度图视角的彩色图
-					cv::Mat rgbdframe = cv::Mat(k4a_image_get_height_pixels(dest_color_image), k4a_image_get_width_pixels(dest_color_image), CV_8UC4, k4a_image_get_buffer(dest_color_image));
+					cv::Mat rgbdframe = cv::Mat(k4a_image_get_height_pixels(dest_color_image),
+						k4a_image_get_width_pixels(dest_color_image),
+						CV_8UC4, k4a_image_get_buffer(dest_color_image));
 					cv::Mat cv_rgbdImage_8U;
 					rgbdframe.convertTo(cv_rgbdImage_8U, CV_8U, 1);
 					string outpath_rgbd = "RGBD_img\\" + filename + "\\";
@@ -264,6 +272,7 @@ int video2Txt(string filename, int start_second) {
 			{
 			case K4A_WAIT_RESULT_SUCCEEDED:
 				cur_frame++;
+
 				break;
 			case K4A_WAIT_RESULT_FAILED:
 				printf("ERROR: Failed to read next capture from file: %s\n", path);
@@ -316,5 +325,194 @@ void pyTxt2Pcd(string txt_dir) {
 		cout << "文件失败" << endl;
 	}
 	Py_Finalize(); //结束python接口
+}
+
+KinectRecord::KinectRecord() {
+	handle = NULL;
+	trans_handle = NULL;
+	capture = NULL;
+}
+
+int KinectRecord::initRecord(string filename, int start_second) {
+	this->filename = filename;
+	string temp = "../Video/" + filename;
+	const char* path = temp.c_str();	//输入的文件路径
+	int no_frame = 0;				//帧序号，从0开始
+	int start_frame = start_second * 30;	//开始帧，用于截取片段
+
+	//打开文件
+	result = k4a_playback_open(path, &handle);
+	if (result != K4A_RESULT_SUCCEEDED)
+	{
+		printf("Failed to open file: %s\n", path);
+		k4a_playback_close(handle);
+		handle = NULL;
+
+		return 0;
+	}
+
+	//获取文件配置
+	result = k4a_playback_get_record_configuration(handle, &record_config);
+	k4a_playback_set_color_conversion(handle, K4A_IMAGE_FORMAT_COLOR_BGRA32);
+	if (result != K4A_RESULT_SUCCEEDED)
+	{
+		printf("Failed to get record configuration for file: device%s\n", path);
+		k4a_playback_close(handle);
+		handle = NULL;
+
+		return 0;
+	}
+	//获取校准数据
+	if (k4a_playback_get_calibration(handle, &calibration)) {
+		printf("Failed to get calibration\n");
+	}
+	//获取准换句柄
+	trans_handle = k4a_transformation_create(&calibration);
+	return 1;
+}
+
+k4a_image_t KinectRecord::getPointCloudImage(k4a_image_t depth_image, k4a_image_t color_image) {
+
+	int depth_image_width_pixels = k4a_image_get_width_pixels(depth_image);
+	int depth_image_height_pixels = k4a_image_get_height_pixels(depth_image);
+
+	////创建目标图
+	//k4a_image_t trans_depth_image = NULL;
+	//if (K4A_RESULT_SUCCEEDED != k4a_image_create(K4A_IMAGE_FORMAT_DEPTH16,
+	//	depth_image_width_pixels,
+	//	depth_image_height_pixels,
+	//	depth_image_width_pixels * 4 * (int)sizeof(uint16_t),
+	//	&trans_depth_image))
+	//{
+	//	cout << "Failed to create transformed color image" << endl;
+	//	return NULL;
+	//}
+
+	////将深度图转为彩色图视点
+	//if (K4A_RESULT_SUCCEEDED !=
+	//	k4a_transformation_depth_image_to_color_camera(trans_handle, depth_image, trans_depth_image))
+	//{
+	//	cout << "Failed to compute transformed color image" << endl;
+	//	return NULL;
+	//}
+
+	// 创建点云图片
+	k4a_image_t point_cloud_image = NULL;
+	if (K4A_RESULT_SUCCEEDED != k4a_image_create(K4A_IMAGE_FORMAT_CUSTOM,
+		depth_image_width_pixels,
+		depth_image_height_pixels,
+		depth_image_width_pixels * 3 * (int)sizeof(int16_t),
+		&point_cloud_image))
+	{
+		cout << "Failed to create point cloud image" << endl;
+		return NULL;
+	}
+
+	// 初始化点云图片
+	if (K4A_RESULT_SUCCEEDED != k4a_transformation_depth_image_to_point_cloud(trans_handle,
+		depth_image,
+		K4A_CALIBRATION_TYPE_DEPTH,
+		point_cloud_image))
+	{
+		cout << "Failed to compute point cloud" << endl;
+		return NULL;
+	}
+	k4a_image_release(depth_image);
+	return point_cloud_image;
+}
+
+int KinectRecord::getPointCloud() {
+	for (int i = 0; i < 6; i++) {
+		//前六帧无彩色图，跳过
+		k4a_playback_get_next_capture(handle, &capture);
+	}
+
+	k4a_stream_result_t stream_result = k4a_playback_get_next_capture(handle, &capture);
+
+	if (stream_result == K4A_STREAM_RESULT_EOF)
+	{
+		printf("ERROR: Recording file is empty: %s\n", path);
+		result = K4A_RESULT_FAILED;
+		return -1;
+	}
+	else if (stream_result == K4A_STREAM_RESULT_FAILED)
+	{
+		printf("ERROR: Failed to read first capture from file: %s\n", path);
+		result = K4A_RESULT_FAILED;
+		return -1;
+	}
+
+
+	k4a_image_t depth_image = k4a_capture_get_depth_image(capture);
+	k4a_image_t color_image = k4a_capture_get_color_image(capture);
+
+
+	if (depth_image == NULL)
+	{
+		cout << "Failed to get depth image from capture" << endl;
+		return -1;
+	}
+	if (color_image == NULL)
+	{
+		cout << "Failed to get color image from capture" << endl;
+		return -1;
+	}
+
+	k4a_image_t point_cloud_image = NULL;
+	point_cloud_image = getPointCloudImage(depth_image, color_image);
+
+	if (point_cloud_image == NULL) {
+		k4a_image_release(depth_image);
+		cout << "Failed to get point_cloud_image from capture" << endl;
+		return -1;
+	}
+	getPCD(point_cloud_image, depth_image);
+	return 1;
+
+}
+
+int KinectRecord::getPCD(k4a_image_t point_cloud_image, k4a_image_t depth_image) {
+	if (point_cloud_image == NULL || depth_image == NULL) {
+		cout << "image is null" << endl;
+		return -1;
+	}
+	int width = k4a_image_get_width_pixels(point_cloud_image);
+	int height = k4a_image_get_height_pixels(point_cloud_image);
+
+	int16_t* point_cloud_image_data = (int16_t*)(void*)k4a_image_get_buffer(point_cloud_image);//访问深度图像缓存区
+	uint8_t* depth_image_data = k4a_image_get_buffer(depth_image);
+	VERTEX3D point;
+
+	cout << width << ' ' << height << endl;
+
+	string filename = "./test.pcd";
+	std::ofstream ofs(filename.c_str()); // text mode first
+	ofs << "pcd" << std::endl;
+	ofs << "format ascii 1.0" << std::endl;
+	ofs << "property float x" << std::endl;
+	ofs << "property float y" << std::endl;
+	ofs << "property float z" << std::endl;
+	ofs << "end_header" << std::endl;
+	ofs.close();
+
+	for (int row = 0; row < height; row++) {
+		for (int col = 0; col < width; col++) {
+			int order = row * width + col;
+			point.x = -point_cloud_image_data[3 * order + 0] / 10;
+			point.y = -point_cloud_image_data[3 * order + 1] / 10;
+			point.z = point_cloud_image_data[3 * order + 2] / 10;
+			if (point.x + point.y + point.z == 0) {
+				continue;
+			}
+
+			std::stringstream ss;
+			ss << (float)point.x << " " << (float)point.y << " "
+				<< point.z << std::endl;
+
+			std::ofstream ofs_text(filename.c_str(), std::ios::out | std::ios::app);
+			ofs_text.write(ss.str().c_str(), (std::streamsize)ss.str().length());
+		}
+	}
+	return 1;
 }
 
