@@ -42,9 +42,12 @@ int main() {
 		cout << "error input!" << endl;
 		return -1;
 	}
-	result_cloud = limitHeight(result_cloud);
-	//result_cloud = downSampleVoxelization(result_cloud);
-	//cout << "下采样体素化后：" << result_cloud->points.size() << endl;
+	result_cloud = limitArea(result_cloud);
+	result_cloud = downSampleVoxelization(result_cloud);
+	cout << "下采样体素化后：" << result_cloud->points.size() << endl;
+
+	/* 计算三维凸包 */
+	result_cloud = getConvexHull(result_cloud);
 
 
 

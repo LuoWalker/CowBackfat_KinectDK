@@ -11,43 +11,39 @@
 #include <pcl/filters/passthrough.h>
 #include <pcl/sample_consensus/ransac.h>
 #include <pcl/sample_consensus/sac_model_line.h> // 拟合直线
-
+#include <pcl/surface/convex_hull.h>
 
 using namespace pcl;
 using std::cout;
 using std::endl;
 using std::string;
 
-myPointXYZ::Ptr limitHeight(myPointXYZ::Ptr target_cloud) {
+myPointXYZ::Ptr limitArea(myPointXYZ::Ptr target_cloud) {
 
 	PointXYZ min, max;
 	getMinMax3D(*target_cloud, min, max);
 
 	myPointXYZ::Ptr result_cloud(new myPointXYZ);
-	/*Eigen::Affine3f transform = Eigen::Affine3f::Identity();
-	transform.rotate(Eigen::AngleAxisf(M_PI, Eigen::Vector3f::UnitY()));
-	transform.translation() << 0, 0, max.z;
-	transformPointCloud(*target_cloud, *target_cloud, transform);*/
-
-	getMinMax3D(*target_cloud, min, max);
+	myPointXYZ::Ptr temp_cloud(new myPointXYZ);
 
 	PassThrough<pcl::PointXYZ> pass;
 	pass.setInputCloud(target_cloud);
 	pass.setFilterFieldName("z");
 	cout << "Z轴最小值" << min.z << ' ' << "Z轴最大值" << max.z << endl;
-	pass.setFilterLimits(max.z - 10, max.z);
+	pass.setFilterLimits(max.z - 300, max.z);
 	pass.filter(*result_cloud);
 
-	SampleConsensusModelLine<PointXYZ>::Ptr model_line(new SampleConsensusModelLine<PointXYZ>(result_cloud));
+	getMinMax3D(*result_cloud, min, max);
+	pass.setInputCloud(result_cloud);
+	pass.setFilterFieldName("z");
+	pass.setFilterLimits(max.z - 10, max.z);
+	pass.filter(*temp_cloud);
+
+	SampleConsensusModelLine<PointXYZ>::Ptr model_line(new SampleConsensusModelLine<PointXYZ>(temp_cloud));
 	RandomSampleConsensus<PointXYZ> ransac(model_line);
 	ransac.setDistanceThreshold(0.01);	//内点到模型的最大距离
 	ransac.setMaxIterations(1000);		//最大迭代次数
 	ransac.computeModel();
-
-	std::vector<int> inliers;
-	ransac.getInliers(inliers);
-	myPointXYZ::Ptr cloud_line(new myPointXYZ);
-	copyPointCloud<PointXYZ>(*result_cloud, inliers, *cloud_line);
 
 	Eigen::VectorXf coef;
 	ransac.getModelCoefficients(coef);
@@ -63,12 +59,19 @@ myPointXYZ::Ptr limitHeight(myPointXYZ::Ptr target_cloud) {
 	transform.translation() << coef[0], 0, 0;
 	transformPointCloud(*result_cloud, *result_cloud, transform);
 
+	getMinMax3D(*result_cloud, min, max);
+	pass.setInputCloud(result_cloud);
+	pass.setFilterFieldName("y");
+	cout << "Y轴最小值" << min.y << ' ' << "Y轴最大值" << max.y << endl;
+	pass.setFilterLimits(min.y, min.y + 1000);
+	pass.filter(*result_cloud);
+
 	visualization::PCLVisualizer viewer("Cloud Viewer");
 	viewer.addCoordinateSystem(1000);
-	visualization::PointCloudColorHandlerCustom<PointXYZ> red(result_cloud, 255, 0, 0);
+	visualization::PointCloudColorHandlerCustom<PointXYZ> red(result_cloud, 255, 255, 255);
 	viewer.addPointCloud(result_cloud, red, "result");
-	visualization::PointCloudColorHandlerCustom<PointXYZ> white(target_cloud, 255, 255, 255);
-	viewer.addPointCloud(target_cloud, white, "target");
+	//visualization::PointCloudColorHandlerCustom<PointXYZ> white(target_cloud, 255, 255, 255);
+	//viewer.addPointCloud(target_cloud, white, "target");
 
 	while (!viewer.wasStopped())
 	{
@@ -107,4 +110,28 @@ myPointXYZ::Ptr downSampleVoxelization(myPointXYZ::Ptr source_cloud) {
 	}	// 使窗口停留
 
 	return result_cloud;
+}
+
+myPointXYZ::Ptr getConvexHull(myPointXYZ::Ptr target_cloud) {
+	ConvexHull<PointXYZ> hull;
+	hull.setInputCloud(target_cloud);
+	hull.setDimension(3);
+
+	std::vector<Vertices> polygons;
+	myPointXYZ::Ptr surface_hull(new myPointXYZ);
+	hull.reconstruct(*surface_hull, polygons);
+
+	visualization::PCLVisualizer viewer("Cloud viewer");
+
+	viewer.addPointCloud(target_cloud, "cloud");
+
+	viewer.addPointCloud(surface_hull, "convex hull");
+	viewer.addPolygon<PointXYZ>(surface_hull, 0, 0, 255, "polyline");
+	viewer.addPolygonMesh<PointXYZ>(surface_hull, polygons, "mesh");
+
+	while (!viewer.wasStopped()) {
+		viewer.spinOnce();
+	}
+
+	return target_cloud;
 }
