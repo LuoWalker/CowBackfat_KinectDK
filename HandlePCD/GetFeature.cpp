@@ -20,21 +20,14 @@ using std::string;
 
 myPointXYZ::Ptr limitArea(myPointXYZ::Ptr target_cloud) {
 
-	PointXYZ min, max;
-	getMinMax3D(*target_cloud, min, max);
-
 	myPointXYZ::Ptr result_cloud(new myPointXYZ);
 	myPointXYZ::Ptr temp_cloud(new myPointXYZ);
 
+	PointXYZ min, max;
+	getMinMax3D(*target_cloud, min, max);
+
 	PassThrough<pcl::PointXYZ> pass;
 	pass.setInputCloud(target_cloud);
-	pass.setFilterFieldName("z");
-	cout << "Z轴最小值" << min.z << ' ' << "Z轴最大值" << max.z << endl;
-	pass.setFilterLimits(max.z - 300, max.z);
-	pass.filter(*result_cloud);
-
-	getMinMax3D(*result_cloud, min, max);
-	pass.setInputCloud(result_cloud);
 	pass.setFilterFieldName("z");
 	pass.setFilterLimits(max.z - 10, max.z);
 	pass.filter(*temp_cloud);
@@ -56,19 +49,26 @@ myPointXYZ::Ptr limitArea(myPointXYZ::Ptr target_cloud) {
 	cout << theta << endl;
 	Eigen::Affine3f transform = Eigen::Affine3f::Identity();
 	transform.rotate(Eigen::AngleAxisf(theta, Eigen::Vector3f::UnitZ()));
-	transform.translation() << coef[0], 0, 0;
-	transformPointCloud(*result_cloud, *result_cloud, transform);
+	transform.rotate(Eigen::AngleAxisf(M_PI, Eigen::Vector3f::UnitY()));
+	transform.translation() << coef[0], 0, max.z;
+	transformPointCloud(*target_cloud, *result_cloud, transform);
 
 	getMinMax3D(*result_cloud, min, max);
 	pass.setInputCloud(result_cloud);
+	pass.setFilterFieldName("z");
+	cout << "Z轴最小值" << min.z << ' ' << "Z轴最大值" << max.z << endl;
+	pass.setFilterLimits(max.z - 300, max.z);
+	pass.filter(*result_cloud);
+
 	pass.setFilterFieldName("y");
 	cout << "Y轴最小值" << min.y << ' ' << "Y轴最大值" << max.y << endl;
-	pass.setFilterLimits(min.y, min.y + 1000);
+	pass.setFilterLimits(min.y, min.y + 500);
 	pass.filter(*result_cloud);
+
 
 	visualization::PCLVisualizer viewer("Cloud Viewer");
 	viewer.addCoordinateSystem(1000);
-	visualization::PointCloudColorHandlerCustom<PointXYZ> red(result_cloud, 255, 255, 255);
+	visualization::PointCloudColorHandlerCustom<PointXYZ> red(result_cloud, 255, 0, 0);
 	viewer.addPointCloud(result_cloud, red, "result");
 	//visualization::PointCloudColorHandlerCustom<PointXYZ> white(target_cloud, 255, 255, 255);
 	//viewer.addPointCloud(target_cloud, white, "target");
@@ -88,27 +88,6 @@ myPointXYZ::Ptr downSampleVoxelization(myPointXYZ::Ptr source_cloud) {
 	filter.setLeafSize(5, 5, 5);
 	filter.filter(*result_cloud);
 
-	visualization::PCLVisualizer viewer("Cloud Viewer");     //创建viewer对象
-	int v1(0), v2(1);
-
-	//原始点云
-	viewer.createViewPort(0, 0, 0.5, 1, v1);	// 对角线坐标（x1,y1,x2,y2）
-	viewer.setBackgroundColor(0, 0, 0, v1);
-	visualization::PointCloudColorHandlerCustom<PointXYZ> white1(source_cloud, 255, 255, 255);
-	viewer.addPointCloud(source_cloud, white1, "source cloud", v1);	// 为点云自定义颜色为白色
-	cout << source_cloud->points.size() << endl;
-
-	//体素化后
-	viewer.createViewPort(0.5, 0, 1, 1, v2);
-	viewer.setBackgroundColor(0, 0, 0, v2);
-	visualization::PointCloudColorHandlerCustom<PointXYZ> white2(result_cloud, 255, 255, 255);
-	viewer.addPointCloud(result_cloud, white2, "result_cloud", v2);	// 为点云自定义颜色为白色	
-
-
-	while (!viewer.wasStopped()) {
-		viewer.spinOnce();
-	}	// 使窗口停留
-
 	return result_cloud;
 }
 
@@ -127,7 +106,7 @@ myPointXYZ::Ptr getConvexHull(myPointXYZ::Ptr target_cloud) {
 
 	viewer.addPointCloud(surface_hull, "convex hull");
 	viewer.addPolygon<PointXYZ>(surface_hull, 0, 0, 255, "polyline");
-	viewer.addPolygonMesh<PointXYZ>(surface_hull, polygons, "mesh");
+	//viewer.addPolygonMesh<PointXYZ>(surface_hull, polygons, "mesh");
 
 	while (!viewer.wasStopped()) {
 		viewer.spinOnce();

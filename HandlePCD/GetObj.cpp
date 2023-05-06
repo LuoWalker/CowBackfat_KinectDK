@@ -45,7 +45,7 @@ myPointXYZ::Ptr removeBackground(myPointXYZ::Ptr target_cloud, myPointXYZ::Ptr s
 	std::vector<int> newPointIndex;
 	octree.getPointIndicesFromNewVoxels(newPointIndex);
 
-	cout << newPointIndex.size() << endl;
+	cout << "索引点：" << newPointIndex.size() << endl;
 
 	inliers->indices = newPointIndex;
 
@@ -54,6 +54,9 @@ myPointXYZ::Ptr removeBackground(myPointXYZ::Ptr target_cloud, myPointXYZ::Ptr s
 	extract.setIndices(inliers);
 	extract.setNegative(false);
 	extract.filter(*source_cloud_result);
+
+	cout << "去除背景点后：" << source_cloud_result->points.size() << endl;
+
 	return source_cloud_result;
 }
 
@@ -62,10 +65,12 @@ myPointXYZ::Ptr removeNoise(myPointXYZ::Ptr target_cloud) {
 
 	StatisticalOutlierRemoval<PointXYZ> sor;
 	sor.setInputCloud(target_cloud);
-	sor.setMeanK(
-		50);
+	sor.setMeanK(100);
 	sor.setStddevMulThresh(1.0);
 	sor.filter(*target_cloud_denoise);
+
+	cout << "统计滤波后：" << target_cloud_denoise->points.size() << endl;
+
 	return target_cloud_denoise;
 }
 
@@ -102,32 +107,20 @@ myPointXYZ::Ptr getObj(myPointXYZ::Ptr target_cloud, myPointXYZ::Ptr source_clou
 	viewer.addPointCloud(source_cloud, blue, "source cloud", v1);
 
 	// 利用octree配准，删除大部分重复点云
-	myPointXYZ::Ptr source_cloud_result(new myPointXYZ);
-	source_cloud_result = removeBackground(target_cloud, source_cloud);
+	myPointXYZ::Ptr source_cloud_remove_back(new myPointXYZ);
+	source_cloud_remove_back = removeBackground(target_cloud, source_cloud);
 
 	// 去背景点云，物体+部分离散点
 	viewer.createViewPort(0.5, 0, 1, 1, v2);
 	viewer.setBackgroundColor(0, 0, 0, v2);
-	//visualization::PointCloudColorHandlerCustom<PointXYZ> white2(source_cloud_result, 255, 255, 255);
-	//viewer.addPointCloud(source_cloud_result, white2, "source cloud result", v2);
 
 	// StatisticalOutlierRemoval滤波
 	myPointXYZ::Ptr source_cloud_denoise(new myPointXYZ);
-	source_cloud_denoise = removeNoise(source_cloud_result);
+	source_cloud_denoise = removeNoise(source_cloud_remove_back);
 
 	// 滤波后点云，物体
 	visualization::PointCloudColorHandlerCustom<PointXYZ> white2(source_cloud_denoise, 255, 255, 255);
 	viewer.addPointCloud(source_cloud_denoise, white2, "source cloud denoise", v2);
-
-	//// MovingLeastSquares 上采样，平滑处理
-	//myPointNormal::Ptr source_cloud_smooth(new myPointNormal);
-	//source_cloud_smooth = smoothByMLS(source_cloud_denoise);
-
-	//// 平滑后点云，物体
-	//viewer.createViewPort(0.5, 0, 1, 0.5, v3);
-	//viewer.setBackgroundColor(0, 0, 0, v3);
-	//visualization::PointCloudColorHandlerCustom<PointNormal> white3(source_cloud_smooth, 255, 255, 255);
-	//viewer.addPointCloud(source_cloud_smooth, white3, "source cloud smooth", v3);
 
 	while (!viewer.wasStopped()) {
 		viewer.spinOnce();
