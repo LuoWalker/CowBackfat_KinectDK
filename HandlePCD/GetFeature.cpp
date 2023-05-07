@@ -29,7 +29,7 @@ myPointXYZ::Ptr limitArea(myPointXYZ::Ptr target_cloud) {
 	PassThrough<pcl::PointXYZ> pass;
 	pass.setInputCloud(target_cloud);
 	pass.setFilterFieldName("z");
-	pass.setFilterLimits(max.z - 10, max.z);
+	pass.setFilterLimits(min.z, min.z + 500);
 	pass.filter(*temp_cloud);
 
 	SampleConsensusModelLine<PointXYZ>::Ptr model_line(new SampleConsensusModelLine<PointXYZ>(temp_cloud));
@@ -46,12 +46,17 @@ myPointXYZ::Ptr limitArea(myPointXYZ::Ptr target_cloud) {
 		<< " = (z - " << coef[2] << ") / " << coef[5] << endl;
 
 	double theta = atan(coef[4] / coef[3]);
-	cout << theta << endl;
+	cout << theta << endl;	//-0.717871
 	Eigen::Affine3f transform = Eigen::Affine3f::Identity();
 	transform.rotate(Eigen::AngleAxisf(theta, Eigen::Vector3f::UnitZ()));
 	transform.rotate(Eigen::AngleAxisf(M_PI, Eigen::Vector3f::UnitY()));
 	transform.translation() << coef[0], 0, max.z;
 	transformPointCloud(*target_cloud, *result_cloud, transform);
+
+	visualization::PCLVisualizer viewer("Cloud Viewer");
+	viewer.addCoordinateSystem(1000);
+	visualization::PointCloudColorHandlerCustom<PointXYZ> white(result_cloud, 255, 255, 255);
+	viewer.addPointCloud(result_cloud, white, "trans");
 
 	getMinMax3D(*result_cloud, min, max);
 	pass.setInputCloud(result_cloud);
@@ -60,14 +65,11 @@ myPointXYZ::Ptr limitArea(myPointXYZ::Ptr target_cloud) {
 	pass.setFilterLimits(max.z - 300, max.z);
 	pass.filter(*result_cloud);
 
-	pass.setFilterFieldName("y");
-	cout << "Y轴最小值" << min.y << ' ' << "Y轴最大值" << max.y << endl;
-	pass.setFilterLimits(min.y, min.y + 500);
+	pass.setFilterFieldName("x");
+	cout << "X轴最小值" << min.x << ' ' << "X轴最大值" << max.x << endl;
+	pass.setFilterLimits(min.x, min.x + 500);
 	pass.filter(*result_cloud);
 
-
-	visualization::PCLVisualizer viewer("Cloud Viewer");
-	viewer.addCoordinateSystem(1000);
 	visualization::PointCloudColorHandlerCustom<PointXYZ> red(result_cloud, 255, 0, 0);
 	viewer.addPointCloud(result_cloud, red, "result");
 	//visualization::PointCloudColorHandlerCustom<PointXYZ> white(target_cloud, 255, 255, 255);
@@ -85,7 +87,7 @@ myPointXYZ::Ptr downSampleVoxelization(myPointXYZ::Ptr source_cloud) {
 	myPointXYZ::Ptr result_cloud(new myPointXYZ);
 	pcl::VoxelGrid<pcl::PointXYZ> filter;
 	filter.setInputCloud(source_cloud);
-	filter.setLeafSize(5, 5, 5);
+	filter.setLeafSize(10, 10, 10);
 	filter.filter(*result_cloud);
 
 	return result_cloud;

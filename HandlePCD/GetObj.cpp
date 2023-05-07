@@ -65,7 +65,7 @@ myPointXYZ::Ptr removeNoise(myPointXYZ::Ptr target_cloud) {
 
 	StatisticalOutlierRemoval<PointXYZ> sor;
 	sor.setInputCloud(target_cloud);
-	sor.setMeanK(100);
+	sor.setMeanK(10);
 	sor.setStddevMulThresh(1.0);
 	sor.filter(*target_cloud_denoise);
 
