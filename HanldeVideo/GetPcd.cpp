@@ -213,29 +213,29 @@ int video2Txt(string filename, int start_second) {
 							VERTEX3D t;
 							if (valid) {
 								//fprintf(fp, "%d %d %d\n", -(int)ray.xyz.x, -(int)ray.xyz.y, (int)ray.xyz.z);
-								t.x = -(int)ray.xyz.x; t.y = -(int)ray.xyz.y; t.z = (int)ray.xyz.z;
+								t.x = -(int)ray.xyz.x; t.y = -(int)ray.xyz.y; t.z = -(int)ray.xyz.z;
 								g_vet.push_back(t);
 								g_vet_color.push_back(v_rgb);
 								i++;
 							}
 							//统计深度较小的点的个数（说明有物体）
-							if (pixelValue < 2000) {
+							if (pixelValue < 1500) {
 								count_depth_near++;
 							}
 						}
 					}
 				}
 
-				/*FILE* fp_count = NULL;
+				FILE* fp_count = NULL;
 				string outpath_count = "./count.txt";
 				fp_count = fopen(outpath_count.c_str(), "a");
-				fprintf(fp_count,"%d:%d\n",no_frame,count_depth_near);
-				fclose(fp_count);*/
+				fprintf(fp_count, "%d:%d\n", no_frame, count_depth_near);
+				fclose(fp_count);
 
 				FILE* fp = NULL;
 				string outpath_txt = "PointCloudData\\" + filename + "\\";
 
-				if (count_depth_near > 120000) {
+				if (count_depth_near > 130000) {
 					//输出深度图视角的彩色图
 					cv::Mat rgbdframe = cv::Mat(k4a_image_get_height_pixels(dest_color_image),
 						k4a_image_get_width_pixels(dest_color_image),
@@ -307,12 +307,12 @@ void pyTxt2Pcd(string txt_dir) {
 	PyObject *pModule, *pFunc, *pArgs;
 	PyObject *result;
 	const char* txt_dirc = txt_dir.c_str();
-	cout << txt_dirc;
+	cout << txt_dirc << endl;
 
 	if (pModule = PyImport_ImportModule("get_pcd")) {
 		if (pFunc = PyObject_GetAttrString(pModule, "txt_pcd")) {
 			pArgs = PyTuple_New(1);
-			PyTuple_SetItem(pArgs, 0, Py_BuildValue("s", txt_dir));
+			PyTuple_SetItem(pArgs, 0, Py_BuildValue("s", txt_dirc));
 
 			result = PyObject_CallObject(pFunc, pArgs); // 调用函数
 
@@ -484,15 +484,21 @@ int KinectRecord::getPCD(k4a_image_t point_cloud_image, k4a_image_t depth_image)
 	VERTEX3D point;
 
 	cout << width << ' ' << height << endl;
+	int count = width * height;
 
 	string filename = "./test.pcd";
 	std::ofstream ofs(filename.c_str()); // text mode first
-	ofs << "pcd" << std::endl;
-	ofs << "format ascii 1.0" << std::endl;
-	ofs << "property float x" << std::endl;
-	ofs << "property float y" << std::endl;
-	ofs << "property float z" << std::endl;
-	ofs << "end_header" << std::endl;
+	ofs << "#.PCD v0.7 - Point Cloud Data file format" << endl
+		<< "VERSION 0.7" << endl
+		<< "FIELDS x y z" << endl
+		<< "SIZE 4 4 4" << endl
+		<< "TYPE F F F" << endl
+		<< "COUNT 1 1 1" << endl
+		<< "WIDTH " << count << endl
+		<< "HEIGHT 1" << endl
+		<< "VIEWPOINT 0 0 0 1 0 0 0" << endl
+		<< "POINTS " << count << endl
+		<< "DATA ascii" << endl;
 	ofs.close();
 
 	for (int row = 0; row < height; row++) {

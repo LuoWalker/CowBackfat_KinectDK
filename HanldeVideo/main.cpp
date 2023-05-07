@@ -5,14 +5,14 @@
 using namespace std;
 
 int main() {
-	string filename = "03212.mkv";
+	string filename = "03213.mkv";
 
-	//video2Txt(filename, 1);
-	//pyTxt2Pcd(filename);
+	video2Txt(filename, 1);
+	pyTxt2Pcd(filename);
 	//PrintCalibrationFromFile(filename.c_str());
-	KinectRecord record;
-	record.initRecord(filename, 0.2);
-	record.getPointCloud();
+	//KinectRecord record;
+	//record.initRecord(filename, 0.2);
+	//record.getPointCloud();
 
 
 	return 0;
