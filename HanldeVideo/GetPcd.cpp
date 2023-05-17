@@ -1,4 +1,5 @@
 #define _CRT_SECURE_NO_WARNINGS
+#define LIMIT_FRAME 30
 #pragma comment(lib, "k4a.lib")
 #include "GetPcd.h"
 #include <stdio.h>
@@ -11,6 +12,7 @@
 #include <opencv2/opencv.hpp>
 #include <Python.h>
 #include <direct.h>
+#include <Windows.h>
 using namespace std;
 
 
@@ -27,8 +29,62 @@ typedef struct VERTEX_RGB
 	float b;
 } VERTEXRGB;
 
+/* 直接获取PCD，速度慢 */
+//int KinectRecord::getPCD(k4a_image_t point_cloud_image, k4a_image_t depth_image, int cur_frame) {
+//	if (point_cloud_image == NULL || depth_image == NULL) {
+//		cout << "image is null" << endl;
+//		return -1;
+//	}
+//	int width = k4a_image_get_width_pixels(point_cloud_image);
+//	int height = k4a_image_get_height_pixels(point_cloud_image);
+//
+//	int16_t* point_cloud_image_data = (int16_t*)(void*)k4a_image_get_buffer(point_cloud_image);//访问深度图像缓存区
+//	uint8_t* depth_image_data = k4a_image_get_buffer(depth_image);
+//
+//	cout << width << ' ' << height << endl;
+//	int count = width * height;
+//	pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud = pcl::PointCloud<pcl::PointXYZ>::Ptr(new pcl::PointCloud<pcl::PointXYZ>);
+//
+//	point_cloud->is_dense = true;
+//	//point_cloud->resize(point_cloud->width*point_cloud->height);
+//	//cout << point_cloud->points.size() << endl;
+//
+//	int pos = filename.find(".");
+//	string record_name = filename.substr(0, pos);
+//	string pcd_name = record_name + '-' + to_string(cur_frame);
+//	cout << pcd_name << endl;
+//	int x, y, z, order;
+//
+//	for (int row = 0; row < height; row++) {
+//		for (int col = 0; col < width; col++) {
+//			order = row * width + col;
+//			x = point_cloud_image_data[3 * order + 0];
+//			y = -point_cloud_image_data[3 * order + 1];
+//			z = -point_cloud_image_data[3 * order + 2];
+//
+//			if (x == 0 && y == 0 && z == 0 || z < -1500) {
+//				continue;
+//			}
+//
+//			pcl::PointXYZ point;
+//			point.x = x; point.y = y; point.z = z + 2400; // 加相机高度
+//
+//			point_cloud->points.push_back(point);
+//		}
+//	}
+//	cout << point_cloud->points.size() << endl;
+//
+//	point_cloud->width = point_cloud->points.size();
+//	point_cloud->height = 1;
+//	string pcd_path = "../PCD/origin/" + record_name + '/' + pcd_name + ".pcd";
+//
+//	pcl::io::savePCDFile(pcd_path, *point_cloud);
+//
+//	return 1;
+//} 
+
 int video2Txt(string filename, int start_second) {
-	string temp = "../Video/" + filename;
+	string temp = "../Video/0513/" + filename;
 	const char* path = temp.c_str();	//输入的文件路径
 	int no_frame = 0;				//帧序号，从0开始
 	int start_frame = start_second * 30;	//开始帧，用于截取片段
@@ -117,14 +173,12 @@ int video2Txt(string filename, int start_second) {
 			goto Exit;
 		}
 
-		int cur_frame = no_frame;
-
 		//进行处理并不断获取新的捕获，处理结束后循环自动停止
 		while (true)
 		{
 			int action = 0;
 			//前几帧无彩色图像（捕获的彩色图像为空指针），故忽略前几帧
-			if (cur_frame >= start_frame) {
+			if (no_frame >= start_frame) {
 				vector<VERTEX3D> g_vet;			//存储三维坐标
 				vector<VERTEXRGB> g_vet_color;	//存储相应RGB信息
 				VERTEXRGB v_rgb;				//存储颜色信息
@@ -235,7 +289,7 @@ int video2Txt(string filename, int start_second) {
 				FILE* fp = NULL;
 				string outpath_txt = "PointCloudData\\" + filename + "\\";
 
-				if (count_depth_near > 130000) {
+				if (count_depth_near > 13000) {
 					//输出深度图视角的彩色图
 					cv::Mat rgbdframe = cv::Mat(k4a_image_get_height_pixels(dest_color_image),
 						k4a_image_get_width_pixels(dest_color_image),
@@ -271,7 +325,7 @@ int video2Txt(string filename, int start_second) {
 			switch (k4a_playback_get_next_capture(handle, &capture))
 			{
 			case K4A_WAIT_RESULT_SUCCEEDED:
-				cur_frame++;
+				no_frame++;
 
 				break;
 			case K4A_WAIT_RESULT_FAILED:
@@ -293,52 +347,23 @@ Exit:
 
 }
 
-void pyTxt2Pcd(string txt_dir) {
-	Py_SetPythonHome(L"D:\\anaconda3\\envs\\BCS"); // 定义python解释器
-	Py_Initialize(); // 初始化python接口
-	string command = "conda activate BCS";
-	system(command.c_str()); // 激活conda环境
-
-	PyRun_SimpleString("import sys");
-	PyRun_SimpleString("import os");
-	PyRun_SimpleString("sys.path.append('./Script')"); // 定义路径
-	PyRun_SimpleString("print(os.getcwd())");
-
-	PyObject *pModule, *pFunc, *pArgs;
-	PyObject *result;
-	const char* txt_dirc = txt_dir.c_str();
-	cout << txt_dirc << endl;
-
-	if (pModule = PyImport_ImportModule("get_pcd")) {
-		if (pFunc = PyObject_GetAttrString(pModule, "txt_pcd")) {
-			pArgs = PyTuple_New(1);
-			PyTuple_SetItem(pArgs, 0, Py_BuildValue("s", txt_dirc));
-
-			result = PyObject_CallObject(pFunc, pArgs); // 调用函数
-
-		}
-		else {
-			cout << "导入失败" << endl;
-		}
-	}
-	else {
-		cout << "文件失败" << endl;
-	}
-	Py_Finalize(); //结束python接口
-}
-
-KinectRecord::KinectRecord() {
+KinectRecord::KinectRecord(int length) {
 	handle = NULL;
 	trans_handle = NULL;
 	capture = NULL;
+	this->length = length;
+	start_frame = new int[length];
 }
 
-int KinectRecord::initRecord(string filename, int start_second) {
+int KinectRecord::initRecord(string filename, int start_second[]) {
 	this->filename = filename;
-	string temp = "../Video/" + filename;
+	string temp = "../Video/0513/" + filename;
 	const char* path = temp.c_str();	//输入的文件路径
-	int no_frame = 0;				//帧序号，从0开始
-	int start_frame = start_second * 30;	//开始帧，用于截取片段
+
+	for (size_t i = 0; i < length; i++)
+	{
+		start_frame[i] = start_second[i] * 30;	//开始帧，用于截取片段
+	}
 
 	//打开文件
 	result = k4a_playback_open(path, &handle);
@@ -422,56 +447,86 @@ k4a_image_t KinectRecord::getPointCloudImage(k4a_image_t depth_image, k4a_image_
 }
 
 int KinectRecord::getPointCloud() {
-	for (int i = 0; i < 6; i++) {
+	int cur_frame = 0;
+	for (cur_frame; cur_frame < 6; cur_frame++) {
 		//前六帧无彩色图，跳过
 		k4a_playback_get_next_capture(handle, &capture);
 	}
 
-	k4a_stream_result_t stream_result = k4a_playback_get_next_capture(handle, &capture);
+	Py_SetPythonHome(L"D:\\anaconda3\\envs\\BCS"); // 定义python解释器
+	Py_Initialize(); // 初始化python接口
 
-	if (stream_result == K4A_STREAM_RESULT_EOF)
+	for (int i = 0; i < length; i++)
 	{
-		printf("ERROR: Recording file is empty: %s\n", path);
-		result = K4A_RESULT_FAILED;
-		return -1;
+		// 跳过无用帧
+		while (cur_frame <= start_frame[i]) {
+			k4a_playback_get_next_capture(handle, &capture);
+			k4a_capture_release(capture);
+			cur_frame++;
+		}
+
+		// 开始输出
+		while (cur_frame <= start_frame[i] + LIMIT_FRAME) {
+			k4a_stream_result_t stream_result = k4a_playback_get_next_capture(handle, &capture);
+
+			if (stream_result == K4A_STREAM_RESULT_EOF)
+			{
+				printf("ERROR: Recording file is empty: %s\n", path);
+				result = K4A_RESULT_FAILED;
+				return -1;
+			}
+			else if (stream_result == K4A_STREAM_RESULT_FAILED)
+			{
+				printf("ERROR: Failed to read first capture from file: %s\n", path);
+				result = K4A_RESULT_FAILED;
+				return -1;
+			}
+
+
+			k4a_image_t depth_image = k4a_capture_get_depth_image(capture);
+			k4a_image_t color_image = k4a_capture_get_color_image(capture);
+
+
+			if (depth_image == NULL)
+			{
+				cout << "Failed to get depth image from capture" << endl;
+				return -1;
+			}
+			if (color_image == NULL)
+			{
+				cout << "Failed to get color image from capture" << endl;
+				return -1;
+			}
+
+			k4a_image_t point_cloud_image = NULL;
+			point_cloud_image = getPointCloudImage(depth_image, color_image);
+
+			if (point_cloud_image == NULL) {
+				k4a_image_release(depth_image);
+				cout << "Failed to get point_cloud_image from capture" << endl;
+				return -1;
+			}
+			getTXT(point_cloud_image, depth_image, cur_frame);
+			k4a_capture_release(capture);
+			cur_frame++;
+		}
+		pyTxt2Pcd(filename, start_frame[i]);
+		cout << filename << ' ' << start_frame[i] / 30 << endl;
+		//system("pause");
 	}
-	else if (stream_result == K4A_STREAM_RESULT_FAILED)
-	{
-		printf("ERROR: Failed to read first capture from file: %s\n", path);
-		result = K4A_RESULT_FAILED;
-		return -1;
-	}
 
+	Py_Finalize(); //结束python接口
 
-	k4a_image_t depth_image = k4a_capture_get_depth_image(capture);
-	k4a_image_t color_image = k4a_capture_get_color_image(capture);
-
-
-	if (depth_image == NULL)
-	{
-		cout << "Failed to get depth image from capture" << endl;
-		return -1;
-	}
-	if (color_image == NULL)
-	{
-		cout << "Failed to get color image from capture" << endl;
-		return -1;
-	}
-
-	k4a_image_t point_cloud_image = NULL;
-	point_cloud_image = getPointCloudImage(depth_image, color_image);
-
-	if (point_cloud_image == NULL) {
-		k4a_image_release(depth_image);
-		cout << "Failed to get point_cloud_image from capture" << endl;
-		return -1;
-	}
-	getPCD(point_cloud_image, depth_image);
 	return 1;
 
 }
 
-int KinectRecord::getPCD(k4a_image_t point_cloud_image, k4a_image_t depth_image) {
+int KinectRecord::getPCD() {
+	getPointCloud();
+	return 1;
+}
+
+int KinectRecord::getTXT(k4a_image_t point_cloud_image, k4a_image_t depth_image, int cur_frame) {
 	if (point_cloud_image == NULL || depth_image == NULL) {
 		cout << "image is null" << endl;
 		return -1;
@@ -481,44 +536,70 @@ int KinectRecord::getPCD(k4a_image_t point_cloud_image, k4a_image_t depth_image)
 
 	int16_t* point_cloud_image_data = (int16_t*)(void*)k4a_image_get_buffer(point_cloud_image);//访问深度图像缓存区
 	uint8_t* depth_image_data = k4a_image_get_buffer(depth_image);
-	VERTEX3D point;
 
-	cout << width << ' ' << height << endl;
 	int count = width * height;
 
-	string filename = "./test.pcd";
-	std::ofstream ofs(filename.c_str()); // text mode first
-	ofs << "#.PCD v0.7 - Point Cloud Data file format" << endl
-		<< "VERSION 0.7" << endl
-		<< "FIELDS x y z" << endl
-		<< "SIZE 4 4 4" << endl
-		<< "TYPE F F F" << endl
-		<< "COUNT 1 1 1" << endl
-		<< "WIDTH " << count << endl
-		<< "HEIGHT 1" << endl
-		<< "VIEWPOINT 0 0 0 1 0 0 0" << endl
-		<< "POINTS " << count << endl
-		<< "DATA ascii" << endl;
-	ofs.close();
+	int pos = filename.find(".");
+	string record_name = filename.substr(0, pos);
+	string pcd_name = record_name + '-' + to_string(cur_frame);
+
+	string txt_path = "./PointCloudData/" + filename + "/" + to_string(cur_frame);
+
+	FILE* fp = NULL;
+	fp = fopen(txt_path.c_str(), "w");//在项目目录下输出文件名
+	cout << pcd_name << endl;
+
+	int x, y, z, order;
 
 	for (int row = 0; row < height; row++) {
 		for (int col = 0; col < width; col++) {
-			int order = row * width + col;
-			point.x = -point_cloud_image_data[3 * order + 0] / 10;
-			point.y = -point_cloud_image_data[3 * order + 1] / 10;
-			point.z = point_cloud_image_data[3 * order + 2] / 10;
-			if (point.x + point.y + point.z == 0) {
+			order = row * width + col;
+			x = point_cloud_image_data[3 * order + 0];
+			y = -point_cloud_image_data[3 * order + 1];
+			z = -point_cloud_image_data[3 * order + 2];
+
+			if (x == 0 && y == 0 && z == 0 || z < -1500) {
 				continue;
 			}
 
-			std::stringstream ss;
-			ss << (float)point.x << " " << (float)point.y << " "
-				<< point.z << std::endl;
-
-			std::ofstream ofs_text(filename.c_str(), std::ios::out | std::ios::app);
-			ofs_text.write(ss.str().c_str(), (std::streamsize)ss.str().length());
+			VERTEX3D point;
+			point.x = x; point.y = y; point.z = z + 2400; // 加相机高度
+			fprintf(fp, "%d %d %d\n", point.x, point.y, point.z);
 		}
 	}
+	fclose(fp);
 	return 1;
 }
 
+void KinectRecord::pyTxt2Pcd(string txt_dir, int start_frame) {
+
+	string command = "conda activate BCS";
+	system(command.c_str()); // 激活conda环境
+
+	PyRun_SimpleString("import sys");
+	PyRun_SimpleString("import os");
+	PyRun_SimpleString("sys.path.append('./Script')"); // 定义路径
+	PyRun_SimpleString("print(os.getcwd())");
+
+	PyObject *pModule, *pFunc, *pArgs;
+	PyObject *result;
+	const char* txt_dirc = txt_dir.c_str();
+	cout << txt_dirc << endl;
+
+	if (pModule = PyImport_ImportModule("get_pcd")) {
+		if (pFunc = PyObject_GetAttrString(pModule, "txt_pcd")) {
+			pArgs = PyTuple_New(2);
+			PyTuple_SetItem(pArgs, 0, Py_BuildValue("s", txt_dirc));
+			PyTuple_SetItem(pArgs, 1, Py_BuildValue("i", start_frame));
+
+			result = PyObject_CallObject(pFunc, pArgs); // 调用函数
+
+		}
+		else {
+			cout << "导入失败" << endl;
+		}
+	}
+	else {
+		cout << "文件失败" << endl;
+	}
+}

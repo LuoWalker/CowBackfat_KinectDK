@@ -27,30 +27,30 @@ myPointXYZ::Ptr limitArea(myPointXYZ::Ptr target_cloud) {
 	getMinMax3D(*target_cloud, min, max);
 
 	PassThrough<pcl::PointXYZ> pass;
-	pass.setInputCloud(target_cloud);
-	pass.setFilterFieldName("z");
-	pass.setFilterLimits(min.z, min.z + 500);
-	pass.filter(*temp_cloud);
+	//pass.setInputCloud(target_cloud);
+	//pass.setFilterFieldName("z");
+	//pass.setFilterLimits(min.z, min.z + 500);
+	//pass.filter(*temp_cloud);
 
-	SampleConsensusModelLine<PointXYZ>::Ptr model_line(new SampleConsensusModelLine<PointXYZ>(temp_cloud));
-	RandomSampleConsensus<PointXYZ> ransac(model_line);
-	ransac.setDistanceThreshold(0.01);	//内点到模型的最大距离
-	ransac.setMaxIterations(1000);		//最大迭代次数
-	ransac.computeModel();
+	//SampleConsensusModelLine<PointXYZ>::Ptr model_line(new SampleConsensusModelLine<PointXYZ>(temp_cloud));
+	//RandomSampleConsensus<PointXYZ> ransac(model_line);
+	//ransac.setDistanceThreshold(0.01);	//内点到模型的最大距离
+	//ransac.setMaxIterations(1000);		//最大迭代次数
+	//ransac.computeModel();
 
-	Eigen::VectorXf coef;
-	ransac.getModelCoefficients(coef);
-	cout << "直线方程为：\n"
-		<< "   (x - " << coef[0] << ") / " << coef[3]
-		<< " = (y - " << coef[1] << ") / " << coef[4]
-		<< " = (z - " << coef[2] << ") / " << coef[5] << endl;
+	//Eigen::VectorXf coef;
+	//ransac.getModelCoefficients(coef);
+	//cout << "直线方程为：\n"
+	//	<< "   (x - " << coef[0] << ") / " << coef[3]
+	//	<< " = (y - " << coef[1] << ") / " << coef[4]
+	//	<< " = (z - " << coef[2] << ") / " << coef[5] << endl;
 
-	double theta = atan(coef[4] / coef[3]);
+	//double theta = atan(coef[4] / coef[3]);
+	double theta = -0.717871;
 	cout << theta << endl;	//-0.717871
 	Eigen::Affine3f transform = Eigen::Affine3f::Identity();
+	transform.translation() << -min.x, -min.y, -min.z;
 	transform.rotate(Eigen::AngleAxisf(theta, Eigen::Vector3f::UnitZ()));
-	transform.rotate(Eigen::AngleAxisf(M_PI, Eigen::Vector3f::UnitY()));
-	transform.translation() << coef[0], 0, max.z;
 	transformPointCloud(*target_cloud, *result_cloud, transform);
 
 	visualization::PCLVisualizer viewer("Cloud Viewer");
@@ -59,15 +59,13 @@ myPointXYZ::Ptr limitArea(myPointXYZ::Ptr target_cloud) {
 	viewer.addPointCloud(result_cloud, white, "trans");
 
 	getMinMax3D(*result_cloud, min, max);
+	//cout << "X轴最值" << min.x << ' ' << max.x << endl;
+	//cout << "Y轴最值" << min.y << ' ' << max.y << endl;
+	//cout << "Z轴最值" << min.z << ' ' << max.z << endl;
+
 	pass.setInputCloud(result_cloud);
 	pass.setFilterFieldName("z");
-	cout << "Z轴最小值" << min.z << ' ' << "Z轴最大值" << max.z << endl;
 	pass.setFilterLimits(max.z - 300, max.z);
-	pass.filter(*result_cloud);
-
-	pass.setFilterFieldName("x");
-	cout << "X轴最小值" << min.x << ' ' << "X轴最大值" << max.x << endl;
-	pass.setFilterLimits(min.x, min.x + 500);
 	pass.filter(*result_cloud);
 
 	visualization::PointCloudColorHandlerCustom<PointXYZ> red(result_cloud, 255, 0, 0);
