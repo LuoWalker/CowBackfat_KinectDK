@@ -401,26 +401,6 @@ k4a_image_t KinectRecord::getPointCloudImage(k4a_image_t depth_image, k4a_image_
 	int depth_image_width_pixels = k4a_image_get_width_pixels(depth_image);
 	int depth_image_height_pixels = k4a_image_get_height_pixels(depth_image);
 
-	////创建目标图
-	//k4a_image_t trans_depth_image = NULL;
-	//if (K4A_RESULT_SUCCEEDED != k4a_image_create(K4A_IMAGE_FORMAT_DEPTH16,
-	//	depth_image_width_pixels,
-	//	depth_image_height_pixels,
-	//	depth_image_width_pixels * 4 * (int)sizeof(uint16_t),
-	//	&trans_depth_image))
-	//{
-	//	cout << "Failed to create transformed color image" << endl;
-	//	return NULL;
-	//}
-
-	////将深度图转为彩色图视点
-	//if (K4A_RESULT_SUCCEEDED !=
-	//	k4a_transformation_depth_image_to_color_camera(trans_handle, depth_image, trans_depth_image))
-	//{
-	//	cout << "Failed to compute transformed color image" << endl;
-	//	return NULL;
-	//}
-
 	// 创建点云图片
 	k4a_image_t point_cloud_image = NULL;
 	if (K4A_RESULT_SUCCEEDED != k4a_image_create(K4A_IMAGE_FORMAT_CUSTOM,
@@ -497,25 +477,25 @@ int KinectRecord::getPointCloud() {
 				cout << "Failed to get color image from capture" << endl;
 				return -1;
 			}
+			getRGBD(depth_image, color_image, cur_frame);
+			//	k4a_image_t point_cloud_image = NULL;
+			//	point_cloud_image = getPointCloudImage(depth_image, color_image);
 
-			k4a_image_t point_cloud_image = NULL;
-			point_cloud_image = getPointCloudImage(depth_image, color_image);
-
-			if (point_cloud_image == NULL) {
-				k4a_image_release(depth_image);
-				cout << "Failed to get point_cloud_image from capture" << endl;
-				return -1;
-			}
-			getTXT(point_cloud_image, depth_image, cur_frame);
+			//	if (point_cloud_image == NULL) {
+			//		k4a_image_release(depth_image);
+			//		cout << "Failed to get point_cloud_image from capture" << endl;
+			//		return -1;
+			//	}
+			//	getTXT(point_cloud_image, depth_image, cur_frame);
 			k4a_capture_release(capture);
 			cur_frame++;
 		}
-		pyTxt2Pcd(filename, start_frame[i]);
+		//pyTxt2Pcd(filename, start_frame[i]);
 		cout << filename << ' ' << start_frame[i] / 30 << endl;
-		//system("pause");
+
 	}
 
-	Py_Finalize(); //结束python接口
+	//Py_Finalize(); //结束python接口
 
 	return 1;
 
@@ -602,4 +582,42 @@ void KinectRecord::pyTxt2Pcd(string txt_dir, int start_frame) {
 	else {
 		cout << "文件失败" << endl;
 	}
+}
+
+void KinectRecord::getRGBD(k4a_image_t depth_image, k4a_image_t color_image, int cur_frame) {
+
+	int depth_image_width_pixels = k4a_image_get_width_pixels(depth_image);
+	int depth_image_height_pixels = k4a_image_get_height_pixels(depth_image);
+
+	//创建目标图
+	k4a_image_t trans_color_image = NULL;
+	if (K4A_RESULT_SUCCEEDED != k4a_image_create(K4A_IMAGE_FORMAT_COLOR_BGRA32,
+		depth_image_width_pixels,
+		depth_image_height_pixels,
+		depth_image_width_pixels * 4 * (int)sizeof(uint8_t),
+		&trans_color_image))
+	{
+		cout << "Failed to create transformed color image" << endl;
+		return;
+	}
+
+	//将彩色图图转为深度图视点
+	if (K4A_RESULT_SUCCEEDED !=
+		k4a_transformation_color_image_to_depth_camera(trans_handle, depth_image, color_image, trans_color_image))
+	{
+		cout << "Failed to compute transformed color image" << endl;
+		return;
+	}
+
+	//输出深度图视角的彩色图
+	cv::Mat rgbdframe = cv::Mat(depth_image_height_pixels, depth_image_width_pixels, CV_8UC4, k4a_image_get_buffer(trans_color_image));
+	cv::Mat cv_rgbdImage_8U;
+	rgbdframe.convertTo(cv_rgbdImage_8U, CV_8U, 1);
+	string outpath_rgbd = "./RGBD_img/" + filename + "/";
+	if (0 != _access(outpath_rgbd.c_str(), 0)) {
+		_mkdir(outpath_rgbd.c_str());
+	}
+	string outfile_rgbd = outpath_rgbd + to_string(cur_frame) + ".png";
+	imwrite(outfile_rgbd, cv_rgbdImage_8U);
+	cout << to_string(cur_frame) + ".png" << endl;
 }

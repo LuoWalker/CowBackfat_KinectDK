@@ -16,6 +16,7 @@ public:
 	int getPCD();
 	int getTXT(k4a_image_t point_cloud_image, k4a_image_t depth_image, int cur_frame);
 	void pyTxt2Pcd(string txt_dir, int start_frame);
+	void getRGBD(k4a_image_t depth_image, k4a_image_t color_image, int cur_frame);
 public:
 	const char* path;
 	int* start_frame;
