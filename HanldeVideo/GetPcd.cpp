@@ -30,7 +30,7 @@ typedef struct VERTEX_RGB
 } VERTEXRGB;
 
 /* 直接获取PCD，速度慢 */
-//int KinectRecord::getPCD(k4a_image_t point_cloud_image, k4a_image_t depth_image, int cur_frame) {
+//int KinectRecord::getPCDDirect(k4a_image_t point_cloud_image, k4a_image_t depth_image, int cur_frame) {
 //	if (point_cloud_image == NULL || depth_image == NULL) {
 //		cout << "image is null" << endl;
 //		return -1;
@@ -55,6 +55,7 @@ typedef struct VERTEX_RGB
 //	cout << pcd_name << endl;
 //	int x, y, z, order;
 //
+//	pcl::PointXYZ point;
 //	for (int row = 0; row < height; row++) {
 //		for (int col = 0; col < width; col++) {
 //			order = row * width + col;
@@ -66,7 +67,6 @@ typedef struct VERTEX_RGB
 //				continue;
 //			}
 //
-//			pcl::PointXYZ point;
 //			point.x = x; point.y = y; point.z = z + 2400; // 加相机高度
 //
 //			point_cloud->points.push_back(point);
@@ -76,12 +76,12 @@ typedef struct VERTEX_RGB
 //
 //	point_cloud->width = point_cloud->points.size();
 //	point_cloud->height = 1;
-//	string pcd_path = "../PCD/origin/" + record_name + '/' + pcd_name + ".pcd";
+//	string pcd_path = "../PCD/test/" + record_name + '/' + pcd_name + ".pcd";
 //
 //	pcl::io::savePCDFile(pcd_path, *point_cloud);
 //
 //	return 1;
-//} 
+//}
 
 int video2Txt(string filename, int start_second) {
 	string temp = "../Video/0513/" + filename;

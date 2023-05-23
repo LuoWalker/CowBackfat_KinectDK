@@ -19,7 +19,7 @@ int main() {
 		1：生成txt、转pcd
 		2：转pcd
 	*/
-	record.getPCD(0);
+	record.getPCD(3);
 	//record.getRGBD();
 
 	return 0;
