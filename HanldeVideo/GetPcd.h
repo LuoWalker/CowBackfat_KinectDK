@@ -7,21 +7,36 @@ using namespace std;
 
 int video2Txt(string filename, int start_second);
 
+enum DATA_TYPE
+{
+	TXT,
+	RGBD,
+	ALL
+};
+
 class KinectRecord {
+private:
+	k4a_image_t getPointCloudImage(k4a_image_t depth_image, k4a_image_t color_image);
+	k4a_image_t getTransColorImage(k4a_image_t depth_image, k4a_image_t color_image, int cur_frame);
+
+	int getData(enum DATA_TYPE type);
+	int saveRGBD(k4a_image_t trans_color_image, int cur_frame);
+	int saveTXT(k4a_image_t point_cloud_image, k4a_image_t depth_image, int cur_frame);
+	void pyTxt2Pcd(string txt_dir, int start_frame);
+
 public:
 	KinectRecord(int length);
 	int initRecord(string filename, int start_second[]);
-	k4a_image_t getPointCloudImage(k4a_image_t depth_image, k4a_image_t color_image);
-	int getPointCloud();
-	int getPCD();
-	int getTXT(k4a_image_t point_cloud_image, k4a_image_t depth_image, int cur_frame);
-	void pyTxt2Pcd(string txt_dir, int start_frame);
-	void getRGBD(k4a_image_t depth_image, k4a_image_t color_image, int cur_frame);
-public:
+	int getTXT();
+	int getPCD(int mode);
+	int getRGBD();
+
+private:
 	const char* path;
 	int* start_frame;
 	int length;
 	string filename;
+
 	k4a_playback_t handle;
 	k4a_transformation_t trans_handle;
 	k4a_record_configuration_t record_config;
