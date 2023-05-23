@@ -18,7 +18,7 @@ using std::cout;
 using std::endl;
 using std::string;
 
-myPointXYZ::Ptr limitArea(myPointXYZ::Ptr target_cloud) {
+myPointXYZ::Ptr limitArea(myPointXYZ::Ptr target_cloud, string filename) {
 
 	myPointXYZ::Ptr result_cloud(new myPointXYZ);
 	myPointXYZ::Ptr temp_cloud(new myPointXYZ);
@@ -46,17 +46,17 @@ myPointXYZ::Ptr limitArea(myPointXYZ::Ptr target_cloud) {
 	//	<< " = (z - " << coef[2] << ") / " << coef[5] << endl;
 
 	//double theta = atan(coef[4] / coef[3]);
-	double theta = -0.717871;
-	cout << theta << endl;	//-0.717871
+	//double theta = -0.717871;
+	//cout << theta << endl;	//-0.717871
 	Eigen::Affine3f transform = Eigen::Affine3f::Identity();
 	transform.translation() << -min.x, -min.y, -min.z;
-	transform.rotate(Eigen::AngleAxisf(theta, Eigen::Vector3f::UnitZ()));
+	transform.rotate(Eigen::AngleAxisf(0, Eigen::Vector3f::UnitZ()));
 	transformPointCloud(*target_cloud, *result_cloud, transform);
 
-	visualization::PCLVisualizer viewer("Cloud Viewer");
-	viewer.addCoordinateSystem(1000);
-	visualization::PointCloudColorHandlerCustom<PointXYZ> white(result_cloud, 255, 255, 255);
-	viewer.addPointCloud(result_cloud, white, "trans");
+	//visualization::PCLVisualizer viewer(filename);
+	//viewer.addCoordinateSystem(1000);
+	//visualization::PointCloudColorHandlerCustom<PointXYZ> white(result_cloud, 255, 255, 255);
+	//viewer.addPointCloud(result_cloud, white, "trans");
 
 	getMinMax3D(*result_cloud, min, max);
 	//cout << "XÖá×îÖµ" << min.x << ' ' << max.x << endl;
@@ -65,18 +65,15 @@ myPointXYZ::Ptr limitArea(myPointXYZ::Ptr target_cloud) {
 
 	pass.setInputCloud(result_cloud);
 	pass.setFilterFieldName("z");
-	pass.setFilterLimits(max.z - 300, max.z);
+	pass.setFilterLimits(max.z - 500, max.z);
 	pass.filter(*result_cloud);
 
-	visualization::PointCloudColorHandlerCustom<PointXYZ> red(result_cloud, 255, 0, 0);
-	viewer.addPointCloud(result_cloud, red, "result");
-	//visualization::PointCloudColorHandlerCustom<PointXYZ> white(target_cloud, 255, 255, 255);
-	//viewer.addPointCloud(target_cloud, white, "target");
+	//visualization::PointCloudColorHandlerCustom<PointXYZ> red(result_cloud, 255, 0, 0);
+	//viewer.addPointCloud(result_cloud, red, "result");
 
-	while (!viewer.wasStopped())
-	{
-		viewer.spinOnce();
-	}
+	//while (!viewer.wasStopped()) {
+	//	viewer.spinOnce(1000);
+	//}
 
 	return result_cloud;
 }
