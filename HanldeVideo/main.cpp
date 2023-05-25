@@ -10,7 +10,7 @@ int main() {
 	//video2Txt(filename, 11);
 	//pyTxt2Pcd(filename);
 	//PrintCalibrationFromFile(filename.c_str());
-	int second[] = { 5,12,15,38 };
+	int second[] = { 43 };
 	int length = sizeof(second) / sizeof(second[0]);
 	KinectRecord record(length);
 	record.initRecord(filename, second);
@@ -19,7 +19,7 @@ int main() {
 		1：生成txt、转pcd
 		2：转pcd
 	*/
-	record.getPCD(3);
+	record.getPCD(1);
 	//record.getRGBD();
 
 	return 0;

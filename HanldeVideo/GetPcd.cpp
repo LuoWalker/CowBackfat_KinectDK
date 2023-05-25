@@ -280,11 +280,11 @@ int video2Txt(string filename, int start_second) {
 					}
 				}
 
-				FILE* fp_count = NULL;
-				string outpath_count = "./count.txt";
-				fp_count = fopen(outpath_count.c_str(), "a");
-				fprintf(fp_count, "%d:%d\n", no_frame, count_depth_near);
-				fclose(fp_count);
+				//FILE* fp_count = NULL;
+				//string outpath_count = "./count.txt";
+				//fp_count = fopen(outpath_count.c_str(), "a");
+				//fprintf(fp_count, "%d:%d\n", no_frame, count_depth_near);
+				//fclose(fp_count);
 
 				FILE* fp = NULL;
 				string outpath_txt = "PointCloudData\\" + filename + "\\";

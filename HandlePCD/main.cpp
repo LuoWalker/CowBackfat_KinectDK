@@ -21,12 +21,16 @@ int main() {
 	myPointXYZ::Ptr result_cloud(new myPointXYZ);
 
 	cout << "target" << endl;
-	string target = "../PCD/origin/05135/05135-121.pcd";
+	string target = "../PCD/innerBackground.pcd";
 	pcl::io::loadPCDFile(target, *target_cloud);
 
-	for (size_t i = 17; i <= 24; i++)
+	for (size_t i = 1; i <= 9; i++)
 	{
-		string dir_name = "0513" + to_string(i) + "/";
+		if (i == 8 || i == 9) {
+			string target = "../PCD/outerBackground.pcd";
+			pcl::io::loadPCDFile(target, *target_cloud);
+		}
+		string dir_name = "0321" + to_string(i) + "/";
 		string origin_pcd_path = "../PCD/origin/" + dir_name;
 		string object_pcd_path = "../PCD/object/" + dir_name;
 		cout << origin_pcd_path << endl;
