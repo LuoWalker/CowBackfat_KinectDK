@@ -5,7 +5,7 @@ import numpy as np
 
 # %%
 # 可视化点云
-pcd = o3d.io.read_point_cloud("../../PCD/origin/051311/051315-3421.pcd")
+pcd = o3d.io.read_point_cloud("../../PCD/origin/051313/051313-720.pcd")
 coor = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1000,
                                                          origin=[0, 0, 0])
 o3d.visualization.draw_geometries([coor, pcd], width=700, height=700)
