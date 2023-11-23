@@ -357,7 +357,7 @@ KinectRecord::KinectRecord(int length) {
 
 int KinectRecord::initRecord(string filename, int start_second[]) {
 	this->filename = filename;
-	string temp = "../Video/0321/" + filename;
+	string temp = "F:/luowenkuo/Video/0513/" + filename;
 	const char* path = temp.c_str();	//输入的文件路径
 
 	for (size_t i = 0; i < length; i++)
@@ -599,7 +599,7 @@ int KinectRecord::saveTXT(k4a_image_t point_cloud_image, k4a_image_t depth_image
 }
 
 void KinectRecord::pyTxt2Pcd(string txt_dir, int start_frame) {
-	Py_SetPythonHome(L"D:\\anaconda3\\envs\\BCS"); // 定义python解释器
+	Py_SetPythonHome(L"D:\\Program Files\\miniconda3\\envs\\BF"); // 定义python解释器
 	Py_Initialize(); // 初始化python接口
 
 	string command = "conda activate BCS";

@@ -29,8 +29,8 @@ def txt_pcd(txt_dir, start_frame):
         pcd_name = record_name + '-' + filename.replace('.txt','.pcd')
 
         if (o3d.io.write_point_cloud(pcd_path + pcd_name,
-                                        source,
-                                        write_ascii=True)):
+										source,
+										write_ascii=True)):
             print("保存成功" + pcd_name)
         else:
             print("保存失败" + pcd_name)
@@ -60,4 +60,4 @@ def txt_pcd(txt_dir, start_frame):
 #                     print("保存失败" + pcd_path)
 
 if __name__ == "__main__":
-    txt_pcd("051313.mkv", 30)
+	txt_pcd("051313.mkv", 30)

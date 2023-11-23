@@ -5,12 +5,12 @@
 using namespace std;
 
 int main() {
-	string filename = "03219.mkv";
+	string filename = "051319.mkv";
 
 	//video2Txt(filename, 11);
 	//pyTxt2Pcd(filename);
 	//PrintCalibrationFromFile(filename.c_str());
-	int second[] = { 43 };
+	int second[] = { 18 };
 	int length = sizeof(second) / sizeof(second[0]);
 	KinectRecord record(length);
 	record.initRecord(filename, second);
