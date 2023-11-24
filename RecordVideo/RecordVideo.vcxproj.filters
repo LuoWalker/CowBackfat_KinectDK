@@ -18,5 +18,22 @@
     <ClCompile Include="main.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="ControlKinect.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="JudgeCow.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="ControlKinect.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="JudgeCow.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
   </ItemGroup>
 </Project>
