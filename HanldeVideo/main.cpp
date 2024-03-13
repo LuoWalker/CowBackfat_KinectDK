@@ -1,26 +1,60 @@
 ﻿#include "GetPcd.h"
-#include <iostream>
 #include "AboutCamera.h"
+#include "pugixml.hpp"
+#include <iostream>
+#include <map>
 
 using namespace std;
 
 int main() {
-	string filename = "051319.mkv";
+	// 加载 XML 文件
+	pugi::xml_document doc;
+	if (!doc.load_file("recordInfo.xml")) {
+		cerr << "Failed to load XML file." << endl;
+		return 1;
+	}
 
-	//video2Txt(filename, 11);
-	//pyTxt2Pcd(filename);
-	//PrintCalibrationFromFile(filename.c_str());
-	int second[] = { 18 };
-	int length = sizeof(second) / sizeof(second[0]);
-	KinectRecord record(length);
-	record.initRecord(filename, second);
+	// 创建一个 std::map 以存储数据
+	map<string, int> recordInfo;
 
-	/*	0: 生成txt、转pcd、生成RGBD
-		1：生成txt、转pcd
-		2：转pcd
-	*/
-	record.getPCD(1);
-	//record.getRGBD();
+
+	// 从 XML 中读取数据并存储到 map 中
+	for (pugi::xml_node item : doc.child("info").find_child_by_attribute("data", "date", "0310").children("item")) {
+		std::string key = item.attribute("key").as_string();
+		int value = item.text().as_int();
+		recordInfo[key] = value;
+	}
+
+	// 逐个处理map中的记录
+	string filename;
+	int length = 0;
+	int *second; //数组
+	Py py;
+	for (const auto& pair : recordInfo) {
+		filename = pair.first;
+		length = pair.second;
+		second = new int[length];
+		for (int i = 0; i <= length; i++)
+		{
+			second[i] = i;
+		}
+		//video2Txt(filename, 11);
+		//pyTxt2Pcd(filename);
+		//PrintCalibrationFromFile(filename.c_str());
+
+		KinectRecord record(length);
+		if (record.initRecord(filename, second) == 0) {
+			continue;
+		}
+		/*	0: 生成txt、转pcd、生成RGBD
+			1：生成txt、转pcd
+			2：转pcd
+		*/
+		record.getPCD(py, 0);
+		//record.getRGBD();
+
+	}
+	py.closePy();
 
 	return 0;
 }

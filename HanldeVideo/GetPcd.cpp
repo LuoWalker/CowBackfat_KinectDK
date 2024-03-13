@@ -1,6 +1,5 @@
 #define _CRT_SECURE_NO_WARNINGS
 #define LIMIT_FRAME 30
-#pragma comment(lib, "k4a.lib")
 #include "GetPcd.h"
 #include <stdio.h>
 #include <iostream>
@@ -10,7 +9,6 @@
 #include <fstream>
 #include <vector>
 #include <opencv2/opencv.hpp>
-#include <Python.h>
 #include <direct.h>
 #include <Windows.h>
 using namespace std;
@@ -18,15 +16,15 @@ using namespace std;
 
 typedef struct VERTEX_3D
 {
-	int x;
-	int y;
-	int z;
+	int16_t x;
+	int16_t y;
+	int16_t z;
 } VERTEX3D;
 typedef struct VERTEX_RGB
 {
-	float r;
-	float g;
-	float b;
+	uint8_t r;
+	uint8_t g;
+	uint8_t b;
 } VERTEXRGB;
 
 /* 直接获取PCD，速度慢 */
@@ -273,9 +271,9 @@ int video2Txt(string filename, int start_second) {
 								i++;
 							}
 							//统计深度较小的点的个数（说明有物体）
-							if (pixelValue < 1500) {
-								count_depth_near++;
-							}
+							//if (pixelValue < 1500) {
+							//	count_depth_near++;
+							//}
 						}
 					}
 				}
@@ -289,7 +287,8 @@ int video2Txt(string filename, int start_second) {
 				FILE* fp = NULL;
 				string outpath_txt = "PointCloudData\\" + filename + "\\";
 
-				if (count_depth_near > 13000) {
+				//if (count_depth_near > 13000) {
+				if (TRUE) {
 					//输出深度图视角的彩色图
 					cv::Mat rgbdframe = cv::Mat(k4a_image_get_height_pixels(dest_color_image),
 						k4a_image_get_width_pixels(dest_color_image),
@@ -357,8 +356,17 @@ KinectRecord::KinectRecord(int length) {
 
 int KinectRecord::initRecord(string filename, int start_second[]) {
 	this->filename = filename;
-	string temp = "F:/luowenkuo/Video/0513/" + filename;
-	const char* path = temp.c_str();	//输入的文件路径
+	string inPath = "../Video/0310/" + filename + ".mkv";
+	//string temp = "../RecordVideo/" + filename;
+	const char* path = inPath.c_str();	//输入的文件路径
+
+	string outPath = "./PointCloudData/" + filename;
+	const char* destPath = outPath.c_str();	//输出的文件路径
+
+	if (_access(destPath, 0) == 0) { //判断该文件夹是否存在
+		cout << "已跳过:" << filename << endl;
+		return 0;
+	}
 
 	for (size_t i = 0; i < length; i++)
 	{
@@ -397,6 +405,9 @@ int KinectRecord::initRecord(string filename, int start_second[]) {
 }
 
 k4a_image_t KinectRecord::getPointCloudImage(k4a_image_t depth_image, k4a_image_t color_image) {
+
+	//int color_image_width_pixels = k4a_image_get_width_pixels(color_image);
+	//int color_image_height_pixels = k4a_image_get_height_pixels(color_image);
 
 	int depth_image_width_pixels = k4a_image_get_width_pixels(depth_image);
 	int depth_image_height_pixels = k4a_image_get_height_pixels(depth_image);
@@ -455,6 +466,34 @@ k4a_image_t KinectRecord::getTransColorImage(k4a_image_t depth_image, k4a_image_
 	}
 }
 
+k4a_image_t KinectRecord::getTransDepthImage(k4a_image_t depth_image, k4a_image_t color_image, int cur_frame) {
+	int color_image_width_pixels = k4a_image_get_width_pixels(color_image);
+	int color_image_height_pixels = k4a_image_get_height_pixels(color_image);
+
+	//创建目标图
+	k4a_image_t trans_depth_image = NULL;
+	if (K4A_RESULT_SUCCEEDED != k4a_image_create(K4A_IMAGE_FORMAT_DEPTH16,
+		color_image_width_pixels,
+		color_image_height_pixels,
+		color_image_width_pixels * (int)sizeof(uint16_t),
+		&trans_depth_image))
+	{
+		cout << "Failed to create transformed color image" << endl;
+		return NULL;
+	}
+
+	//将彩色图图转为深度图视点
+	if (K4A_RESULT_SUCCEEDED !=
+		k4a_transformation_depth_image_to_color_camera(trans_handle, depth_image, trans_depth_image))
+	{
+		cout << "Failed to compute transformed color image" << endl;
+		return NULL;
+	}
+	else {
+		return trans_depth_image;
+	}
+}
+
 int KinectRecord::getData(enum DATA_TYPE type) {
 	int cur_frame = 0;
 	for (cur_frame; cur_frame < 6; cur_frame++) {
@@ -504,15 +543,17 @@ int KinectRecord::getData(enum DATA_TYPE type) {
 			//	cout << "Failed to get color image from capture" << endl;
 			//	return -1;
 			//}
+			k4a_image_t trans_color_image = NULL;
+			k4a_image_t trans_depth_image = NULL;
+			trans_color_image = getTransColorImage(depth_image, color_image, cur_frame);
+			trans_depth_image = getTransDepthImage(depth_image, color_image, cur_frame);
 
 			if (type == TXT || type == ALL) {
 				k4a_image_t point_cloud_image = NULL;
 				point_cloud_image = getPointCloudImage(depth_image, color_image);
-				saveTXT(point_cloud_image, depth_image, cur_frame);
+				saveTXT(point_cloud_image, depth_image, trans_color_image, cur_frame);
 			}
 			if (type == RGBD || type == ALL) {
-				k4a_image_t trans_color_image = NULL;
-				trans_color_image = getTransColorImage(depth_image, color_image, cur_frame);
 				saveRGBD(trans_color_image, cur_frame);
 			}
 
@@ -530,13 +571,18 @@ int KinectRecord::getData(enum DATA_TYPE type) {
 
 }
 
-int KinectRecord::saveRGBD(k4a_image_t trans_color_image, int cur_frame) {
-	int width_pixels = k4a_image_get_width_pixels(trans_color_image);
-	int height_pixels = k4a_image_get_height_pixels(trans_color_image);
-	//输出深度图视角的彩色图
-	cv::Mat rgbdframe = cv::Mat(height_pixels, width_pixels, CV_8UC4, k4a_image_get_buffer(trans_color_image));
+int KinectRecord::saveRGBD(k4a_image_t trans_image, int cur_frame) {
+	int width_pixels = k4a_image_get_width_pixels(trans_image);
+	int height_pixels = k4a_image_get_height_pixels(trans_image);
+	//输出深度图视角的RGBD
+	cv::Mat rgbdframe = cv::Mat(height_pixels, width_pixels, CV_8UC4, k4a_image_get_buffer(trans_image));
 	cv::Mat cv_rgbdImage_8U;
 	rgbdframe.convertTo(cv_rgbdImage_8U, CV_8U, 1);
+
+	//输出彩色图视角的RGBD
+	//cv::Mat rgbdframe = cv::Mat(height_pixels, width_pixels, CV_8UC4, (uint8_t *)k4a_image_get_buffer(trans_image));
+	//cv::Mat cv_rgbdImage_8U;
+	//rgbdframe.convertTo(cv_rgbdImage_8U, CV_8U, 1);
 
 	string outpath_rgbd = "./RGBD_img/" + filename + "/";
 	if (0 != _access(outpath_rgbd.c_str(), 0)) {
@@ -545,20 +591,21 @@ int KinectRecord::saveRGBD(k4a_image_t trans_color_image, int cur_frame) {
 	string png_name = to_string(cur_frame) + ".png";
 	string outfile_rgbd = outpath_rgbd + png_name;
 	imwrite(outfile_rgbd, cv_rgbdImage_8U);
-	cout << png_name << endl;
+	//cout << png_name << endl;
 	return 1;
 }
 
-int KinectRecord::saveTXT(k4a_image_t point_cloud_image, k4a_image_t depth_image, int cur_frame) {
+int KinectRecord::saveTXT(k4a_image_t point_cloud_image, k4a_image_t depth_image, k4a_image_t color_image, int cur_frame) {
 	if (point_cloud_image == NULL || depth_image == NULL) {
 		cout << "image is null" << endl;
 		return -1;
 	}
 	int width = k4a_image_get_width_pixels(point_cloud_image);
-	int height = k4a_image_get_height_pixels(point_cloud_image);
+	int height = k4a_image_get_height_pixels(color_image);
 
 	int16_t* point_cloud_image_data = (int16_t*)(void*)k4a_image_get_buffer(point_cloud_image);//访问深度图像缓存区
 	uint8_t* depth_image_data = k4a_image_get_buffer(depth_image);
+	uint8_t* color_buffer = k4a_image_get_buffer(color_image);		//访问彩色图像缓存区
 
 	int count = width * height;
 
@@ -574,9 +621,11 @@ int KinectRecord::saveTXT(k4a_image_t point_cloud_image, k4a_image_t depth_image
 	FILE* fp = NULL;
 	string txt_path = txt_dir + txt_name;
 	fp = fopen(txt_path.c_str(), "w");//在项目目录下输出文件名
-	cout << txt_name << endl;
+	//cout << txt_name << endl;
 
 	int x, y, z, order;
+	VERTEXRGB rgb;
+	VERTEX3D point;
 
 	for (int row = 0; row < height; row++) {
 		for (int col = 0; col < width; col++) {
@@ -585,44 +634,37 @@ int KinectRecord::saveTXT(k4a_image_t point_cloud_image, k4a_image_t depth_image
 			y = -point_cloud_image_data[3 * order + 1];
 			z = -point_cloud_image_data[3 * order + 2];
 
+
+			rgb.b = color_buffer[4 * order + 0];
+			rgb.g = color_buffer[4 * order + 1];
+			rgb.r = color_buffer[4 * order + 2];
+
 			if (x == 0 && y == 0 && z == 0 || z < -1500) {
 				continue;
 			}
 
-			VERTEX3D point;
-			point.x = x; point.y = y; point.z = z + 2400; // 加相机高度
-			fprintf(fp, "%d %d %d\n", point.x, point.y, point.z);
+			point.x = x; point.y = y; point.z = z + 1500; // 加相机高度
+			fprintf(fp, "%d %d %d %d %d %d\n", point.x, point.y, point.z, rgb.r, rgb.g, rgb.b);
 		}
 	}
 	fclose(fp);
 	return 1;
 }
 
-void KinectRecord::pyTxt2Pcd(string txt_dir, int start_frame) {
-	Py_SetPythonHome(L"D:\\Program Files\\miniconda3\\envs\\BF"); // 定义python解释器
+Py::Py() {
+	Py_SetPythonHome(L"D:\\environments\\miniconda3\\envs\\BF"); // 定义python解释器
 	Py_Initialize(); // 初始化python接口
 
-	string command = "conda activate BCS";
+	string command = "conda activate BF";
 	system(command.c_str()); // 激活conda环境
 
 	PyRun_SimpleString("import sys");
 	PyRun_SimpleString("import os");
-	PyRun_SimpleString("sys.path.append('./Script')"); // 定义路径
+	PyRun_SimpleString("sys.path.append('Script')"); // 定义路径
 	PyRun_SimpleString("print(os.getcwd())");
-
-	PyObject *pModule, *pFunc, *pArgs;
-	PyObject *result;
-	const char* txt_dirc = txt_dir.c_str();
-	cout << txt_dirc << endl;
 
 	if (pModule = PyImport_ImportModule("get_pcd")) {
 		if (pFunc = PyObject_GetAttrString(pModule, "txt_pcd")) {
-			pArgs = PyTuple_New(2);
-			PyTuple_SetItem(pArgs, 0, Py_BuildValue("s", txt_dirc));
-			PyTuple_SetItem(pArgs, 1, Py_BuildValue("i", start_frame));
-
-			result = PyObject_CallObject(pFunc, pArgs); // 调用函数
-
 		}
 		else {
 			cout << "导入失败" << endl;
@@ -630,9 +672,23 @@ void KinectRecord::pyTxt2Pcd(string txt_dir, int start_frame) {
 	}
 	else {
 		cout << "文件失败" << endl;
+		PyErr_Print();
 	}
+}
+void Py::closePy() {
 	Py_Finalize(); //结束python接口
+}
 
+void Py::pyTxt2Pcd(string txt_dir, int start_frame) {
+	PyObject *result;
+	const char* txt_dirc = txt_dir.c_str();
+	cout << txt_dirc << endl;
+
+	pArgs = PyTuple_New(2);
+	PyTuple_SetItem(pArgs, 0, Py_BuildValue("s", txt_dirc));
+	PyTuple_SetItem(pArgs, 1, Py_BuildValue("i", start_frame));
+
+	result = PyObject_CallObject(pFunc, pArgs); // 调用函数
 }
 
 
@@ -642,18 +698,18 @@ int KinectRecord::getTXT() {
 	return 1;
 }
 
-int KinectRecord::getPCD(int mode) {
+int KinectRecord::getPCD(Py py, int mode) {
 	if (mode == 0) {
 		enum DATA_TYPE type = ALL;
 		getData(type);
-		pyTxt2Pcd(filename, start_frame[0]);
+		py.pyTxt2Pcd(filename, start_frame[0]);
 	}
 	else if (mode == 1) {
 		getTXT();
-		pyTxt2Pcd(filename, start_frame[0]);
+		py.pyTxt2Pcd(filename, start_frame[0]);
 	}
 	else if (mode == 2) {
-		pyTxt2Pcd(filename, start_frame[0]);
+		py.pyTxt2Pcd(filename, start_frame[0]);
 	}
 	return 1;
 }

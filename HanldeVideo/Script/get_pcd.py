@@ -10,27 +10,25 @@ def txt_pcd(txt_dir, start_frame):
     path = "./PointCloudData/" + dir_name
     filenames = os.listdir(path)
     for filename in filenames:
-        #if (int(filename) >= start_frame
+        # if (int(filename) >= start_frame
         #        and int(filename) <= start_frame + 30):
-        txt_path = path + '/' + filename
+        txt_path = path + "/" + filename
         # 保存点云信息
         source = o3d.geometry.PointCloud()
         xyz = np.loadtxt(txt_path)[:, 0:3]
-        #color = np.loadtxt(txt_path)[:, 3:6]
+        rgb = np.loadtxt(txt_path)[:, 3:6]
         source.points = o3d.utility.Vector3dVector(xyz)
-        #source.colors = o3d.utility.Vector3dVector(color)
+        source.colors = o3d.utility.Vector3dVector(rgb)
 
         record_name = dir_name.split(".")[0]
 
-        pcd_path = "./../PCD/origin/" + record_name + "/"
-        if (not os.path.exists(pcd_path)):
+        pcd_path = "./../PCD/origin/0310/" + record_name + "/"
+        if not os.path.exists(pcd_path):
             os.makedirs(pcd_path)
 
-        pcd_name = record_name + '-' + filename.replace('.txt','.pcd')
+        pcd_name = record_name + "-" + filename.replace(".txt", ".pcd")
 
-        if (o3d.io.write_point_cloud(pcd_path + pcd_name,
-										source,
-										write_ascii=True)):
+        if o3d.io.write_point_cloud(pcd_path + pcd_name, source, write_ascii=True):
             print("保存成功" + pcd_name)
         else:
             print("保存失败" + pcd_name)
@@ -60,4 +58,4 @@ def txt_pcd(txt_dir, start_frame):
 #                     print("保存失败" + pcd_path)
 
 if __name__ == "__main__":
-	txt_pcd("051313.mkv", 30)
+    txt_pcd("1123.mkv", 6)
