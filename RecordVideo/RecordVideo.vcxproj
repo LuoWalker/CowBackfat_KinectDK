@@ -70,8 +70,8 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>D:\Program Files\opencv\install\include\opencv2;D:\Program Files\opencv\install\include;$(IncludePath)</IncludePath>
-    <LibraryPath>D:\Program Files\opencv\install\x64\vc15\lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>D:\environments\opencv\build\include\opencv2;D:\environments\opencv\build\include;C:\Program Files\Azure Kinect SDK v1.4.1\sdk\include;$(IncludePath)</IncludePath>
+    <LibraryPath>D:\environments\opencv\build\x64\vc16\lib;C:\Program Files\Azure Kinect SDK v1.4.1\sdk\windows-desktop\amd64\release\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -82,7 +82,7 @@
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
-      <AdditionalDependencies>opencv_aruco481d.lib;opencv_bgsegm481d.lib;opencv_bioinspired481d.lib;opencv_calib3d481d.lib;opencv_ccalib481d.lib;opencv_core481d.lib;opencv_datasets481d.lib;opencv_dnn481d.lib;opencv_dnn_objdetect481d.lib;opencv_dnn_superres481d.lib;opencv_dpm481d.lib;opencv_face481d.lib;opencv_features2d481d.lib;opencv_flann481d.lib;opencv_fuzzy481d.lib;opencv_gapi481d.lib;opencv_hfs481d.lib;opencv_highgui481d.lib;opencv_imgcodecs481d.lib;opencv_imgproc481d.lib;opencv_img_hash481d.lib;opencv_intensity_transform481d.lib;opencv_line_descriptor481d.lib;opencv_mcc481d.lib;opencv_ml481d.lib;opencv_objdetect481d.lib;opencv_optflow481d.lib;opencv_phase_unwrapping481d.lib;opencv_photo481d.lib;opencv_plot481d.lib;opencv_quality481d.lib;opencv_rapid481d.lib;opencv_reg481d.lib;opencv_rgbd481d.lib;opencv_saliency481d.lib;opencv_shape481d.lib;opencv_stereo481d.lib;opencv_stitching481d.lib;opencv_structured_light481d.lib;opencv_superres481d.lib;opencv_surface_matching481d.lib;opencv_text481d.lib;opencv_tracking481d.lib;opencv_video481d.lib;opencv_videoio481d.lib;opencv_videostab481d.lib;opencv_viz481d.lib;opencv_wechat_qrcode481d.lib;opencv_xfeatures2d481d.lib;opencv_ximgproc481d.lib;opencv_xobjdetect481d.lib;opencv_xphoto481d.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>opencv_world490.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">

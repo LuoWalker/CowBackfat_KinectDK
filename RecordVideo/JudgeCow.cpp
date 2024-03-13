@@ -57,9 +57,15 @@ bool isHaveCow(k4a_device_t device) {
 
 	//取得第一个捕获
 	k4a_stream_result_t stream_result = k4a_playback_get_next_capture(handle, &capture);
-	k4a_image_t curDepthImage;
-	Mat curDepthMat, thresholded_image;
-	uint8_t threshold_value;
+	int i = 10;
+	while (i-- > 0)
+	{
+		k4a_capture_release(capture);
+		k4a_playback_get_next_capture(handle, &capture);
+	}
+	k4a_image_t curDepthImage, curColorImage;
+	Mat curDepthMat, curColorMat, thresholded_image, contours_image;
+	int threshold_value;
 
 	while (true) {
 		//第一个捕获获取成功
@@ -67,12 +73,13 @@ bool isHaveCow(k4a_device_t device) {
 		{
 			// 读取当前帧
 			curDepthImage = k4a_capture_get_depth_image(capture);
+			curColorImage = k4a_capture_get_color_image(capture);
 
 			// 获取深度图数据
-			curDepthMat = getMatFromk4a(curDepthImage);
-
+			curDepthMat = getMatFromk4a(curDepthImage, 0);
+			curColorMat = getMatFromk4a(curColorImage, 1);
 			// 设置深度阈值
-			threshold_value = 700;
+			threshold_value = 500;
 
 			// 使用阈值化操作
 			threshold(curDepthMat, thresholded_image, threshold_value, 255, THRESH_BINARY);
@@ -80,7 +87,7 @@ bool isHaveCow(k4a_device_t device) {
 			// 显示阈值化图
 			int white_pixel_count = countNonZero(thresholded_image);
 			putText(thresholded_image, to_string(white_pixel_count), Point(50, 50), FONT_HERSHEY_COMPLEX, 1, (0, 0, 255), 1);
-			imshow("result", thresholded_image);
+			imshow("thresholded image", thresholded_image);
 		}
 		else
 		{
@@ -103,14 +110,14 @@ bool isHaveCow(k4a_capture_t capture) {
 
 	k4a_image_t curDepthImage;
 	Mat curDepthMat, thresholded_image;
-	uint8_t threshold_value;
+	int threshold_value;
 
 
 	// 读取当前帧
 	curDepthImage = k4a_capture_get_depth_image(capture);
 
 	// 获取深度图数据
-	curDepthMat = getMatFromk4a(curDepthImage);
+	curDepthMat = getMatFromk4a(curDepthImage, 0);
 
 	// 设置深度阈值
 	threshold_value = 700;
@@ -125,7 +132,7 @@ bool isHaveCow(k4a_capture_t capture) {
 
 	return true;
 }
-Mat getMatFromk4a(k4a_image_t k4aImage) {
+Mat getMatFromk4a(k4a_image_t k4aImage, int mode) {
 	// 获取图像属性
 	int width = k4a_image_get_width_pixels(k4aImage);
 	int height = k4a_image_get_height_pixels(k4aImage);
@@ -135,11 +142,15 @@ Mat getMatFromk4a(k4a_image_t k4aImage) {
 	uint8_t* k4aData = k4a_image_get_buffer(k4aImage);
 
 	// 创建对应 OpenCV Mat
-	Mat cvImage(height, width, CV_16U, k4aData);
-	cvImage.convertTo(cvImage, CV_8U, 1);
-
+	if (mode == 0) {
+		Mat cvImage(height, width, CV_16U, k4aData);
+		cvImage.convertTo(cvImage, CV_8U, 1);
+		return cvImage;
+	}
+	else if (mode == 1) {
+		Mat cvImage(height, width, CV_8UC4, k4aData);
+		return cvImage;
+	}
 	// 如果需要 BGR 格式而不是灰度图，请进行相应的颜色通道转换
 	//cv::cvtColor(cvImage, cvImage, cv::COLOR_GRAY2BGR);
-
-	return cvImage;
 }

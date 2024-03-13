@@ -12,11 +12,11 @@ int main(int argc, char *argv[])
 											//0, // subordinate_delay_off_master_usec
 											false // disable_streaming_indicator
 	};
-	kinect.startCameras(&config, true);
-	kinect.doRecording("./output.mkv", 3, &config);
-	kinect.doRecording("./output1.mkv", 3, &config);
-	//isHaveCow(kinect.device);
-	kinect.closeDevice();
+	//kinect.startCameras(&config, true);
+	//kinect.doRecording("./output.mkv", 3, &config);
+	//kinect.doRecording("./output1.mkv", 3, &config);
+	isHaveCow(kinect.device);
+	//kinect.closeDevice();
 
 	return 0;
 }

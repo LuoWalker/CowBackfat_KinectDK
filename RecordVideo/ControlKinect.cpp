@@ -101,6 +101,7 @@ int Kinect::startCameras(k4a_device_configuration_t *device_config, bool record_
 		CHECK(k4a_device_start_imu(device), device);
 	}
 	std::cout << "Cameras started£º" << std::endl;
+	return 1;
 }
 
 int Kinect::doRecording(const char *recording_filename, int recording_length, k4a_device_configuration_t *device_config)
