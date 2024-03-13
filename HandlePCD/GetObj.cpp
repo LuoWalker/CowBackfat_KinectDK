@@ -12,6 +12,7 @@
 #include <pcl/visualization/pcl_visualizer.h>
 #include <pcl/io/io.h>
 #include <pcl/io/pcd_io.h>//pcd 读写类相关的头文件。
+#include <pcl/segmentation/extract_clusters.h>
 using namespace pcl;
 using std::cout;
 using std::endl;
@@ -72,6 +73,70 @@ myPointXYZ::Ptr removeNoise(myPointXYZ::Ptr target_cloud) {
 	cout << "统计滤波后：" << target_cloud_denoise->points.size() << endl;
 
 	return target_cloud_denoise;
+}
+
+myPointXYZ::Ptr removeOtherObj(myPointXYZ::Ptr target_cloud) {
+	pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>);
+	tree->setInputCloud(target_cloud);
+
+	pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
+	ec.setClusterTolerance(10); // 设置欧式聚类的容差
+	ec.setMinClusterSize(3000);   // 设置最小的聚类大小
+	ec.setMaxClusterSize(15000);  // 设置最大的聚类大小
+	ec.setSearchMethod(tree);
+	ec.setInputCloud(target_cloud);
+
+	std::vector<pcl::PointIndices> cluster_indices;
+	ec.extract(cluster_indices);
+
+	int clusterId = 0, maxPointId = 0;
+	int maxPoints = 0;
+	myPointXYZ::Ptr maxCluster(new myPointXYZ);
+	//pcl::visualization::PCLVisualizer::Ptr viewer(new pcl::visualization::PCLVisualizer("Cluster viewer"));
+
+	for (std::vector<pcl::PointIndices>::const_iterator it = cluster_indices.begin(); it != cluster_indices.end(); ++it)
+	{
+		pcl::PointXYZ min_pt, max_pt;
+		myPointXYZ::Ptr cluster(new myPointXYZ);
+		for (std::vector<int>::const_iterator pit = cluster_indices[clusterId].indices.begin(); pit != cluster_indices[clusterId].indices.end(); ++pit)
+			cluster->points.push_back(target_cloud->points[*pit]);
+		//pcl::getMinMax3D(*cluster, min_pt, max_pt);
+
+		//std::cout << "点数: " << cluster->points.size() << std::endl;
+
+		//std::cout << "最小X值: " << min_pt.x << std::endl;
+		//std::cout << "最大X值: " << max_pt.x << std::endl;
+
+		//std::cout << "最小y值: " << min_pt.y << std::endl;
+		//std::cout << "最大y值: " << max_pt.y << std::endl;
+
+		//std::cout << "最小z值: " << min_pt.z << std::endl;
+		//std::cout << "最大z值: " << max_pt.z << std::endl;
+
+		if (it->indices.size() > maxPoints) {
+			maxPoints = cluster->points.size();
+			maxPointId = clusterId;
+			maxCluster = cluster;
+		}
+	}
+
+	for (std::vector<int>::const_iterator pit = cluster_indices[maxPointId].indices.begin(); pit != cluster_indices[maxPointId].indices.end(); ++pit)
+		maxCluster->points.push_back(target_cloud->points[*pit]);
+	maxCluster->width = maxCluster->points.size();
+	maxCluster->height = 1;
+	maxCluster->is_dense = true;
+
+	//// 可视化聚类
+	//pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> single_cluster_color(maxCluster, 255, 255, 255);
+	//viewer->addPointCloud<pcl::PointXYZ>(maxCluster, single_cluster_color, "cluster_" + std::to_string(clusterId));
+	//viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "cluster_" + std::to_string(clusterId));
+	//// 设置可视化窗口
+	//viewer->initCameraParameters();
+	//viewer->setBackgroundColor(0, 0, 0);
+	//viewer->addCoordinateSystem(1000.0);
+	//viewer->spin();
+
+	return maxCluster;
 }
 
 myPointNormal::Ptr smoothByMLS(myPointXYZ::Ptr target_cloud) {
