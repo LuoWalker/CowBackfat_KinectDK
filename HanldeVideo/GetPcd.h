@@ -7,7 +7,8 @@
 using namespace std;
 
 int video2Txt(string filename, int start_second);
-
+void txt2Pcd(string txt_dir);
+void processTxt(const std::string& txtFile, string record_name);
 class Py
 {
 public:
@@ -43,7 +44,8 @@ public:
 	KinectRecord(int length);
 	int initRecord(string filename, int start_second[]);
 	int getTXT();
-	int getPCD(Py py, int mode);
+	//int getPCD(Py py, int mode);
+	int getPCD(int mode);
 	int getRGBD();
 
 private:

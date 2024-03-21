@@ -9,17 +9,20 @@ def txt_pcd(file):
     # 保存点云信息
     source = o3d.geometry.PointCloud()
     xyz = np.loadtxt(file)[:, 0:3]
-    # color = np.loadtxt(txt_path)[:, 3:6]
+    xyz = np.asarray(xyz).astype(np.float32)
+    color = np.loadtxt(file)[:, 3:6]
+    color = np.asarray(color / 255.0).astype(np.uint8)
+
     source.points = o3d.utility.Vector3dVector(xyz)
-    # source.colors = o3d.utility.Vector3dVector(color)
+    source.colors = o3d.utility.Vector3dVector(color)
 
     record_name = file.split("\\")[-2].split(".")[0]
 
-    pcd_path = "../../PCD/origin/" + record_name + "/"
+    pcd_path = "../../PCD/origin/0310/" + record_name + "/"
     if not os.path.exists(pcd_path):
         os.makedirs(pcd_path)
 
-    pcd_name = record_name + "-" + filename.replace(".txt", ".pcd")
+    pcd_name = record_name + "-" + filename.replace(".txt", ".ply")
 
     if o3d.io.write_point_cloud(pcd_path + pcd_name, source, write_ascii=True):
         print("保存成功" + pcd_name)
@@ -29,16 +32,7 @@ def txt_pcd(file):
 
 if __name__ == "__main__":
     # Replace 'your_folder' with the path to your folder containing point cloud files
-    for folder_name in [
-        "18315",
-        "19137",
-        "19161",
-        "19161_2",
-        "19181",
-        "19235",
-        "19257",
-        "19259",
-    ]:
+    for folder_name in ["1058"]:
         folder_path = "..\\PointCloudData\\" + folder_name
 
         # List all files in the folder

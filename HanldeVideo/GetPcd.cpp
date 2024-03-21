@@ -11,7 +11,16 @@
 #include <opencv2/opencv.hpp>
 #include <direct.h>
 #include <Windows.h>
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
+#include <pcl/io/pcd_io.h>
+#include <filesystem>
+#include <algorithm>
+
 using namespace std;
+using namespace pcl;
+using std::filesystem::directory_iterator;
+using std::filesystem::path;
 
 
 typedef struct VERTEX_3D
@@ -356,17 +365,17 @@ KinectRecord::KinectRecord(int length) {
 
 int KinectRecord::initRecord(string filename, int start_second[]) {
 	this->filename = filename;
-	string inPath = "../Video/0310/" + filename + ".mkv";
+	string inPath = "D:/OneDrive - 西北农林科技大学/Master/Project_FatDepth/KinectDK/Video/0310/" + filename + ".mkv";
 	//string temp = "../RecordVideo/" + filename;
 	const char* path = inPath.c_str();	//输入的文件路径
 
 	string outPath = "./PointCloudData/" + filename;
 	const char* destPath = outPath.c_str();	//输出的文件路径
 
-	if (_access(destPath, 0) == 0) { //判断该文件夹是否存在
-		cout << "已跳过:" << filename << endl;
-		return 0;
-	}
+	//if (_access(destPath, 0) == 0) { //判断该文件夹是否存在
+	//	cout << "已跳过:" << filename << endl;
+	//	return 0;
+	//}
 
 	for (size_t i = 0; i < length; i++)
 	{
@@ -680,7 +689,7 @@ void Py::closePy() {
 }
 
 void Py::pyTxt2Pcd(string txt_dir, int start_frame) {
-	PyObject *result;
+	PyObject* result;
 	const char* txt_dirc = txt_dir.c_str();
 	cout << txt_dirc << endl;
 
@@ -691,6 +700,69 @@ void Py::pyTxt2Pcd(string txt_dir, int start_frame) {
 	result = PyObject_CallObject(pFunc, pArgs); // 调用函数
 }
 
+void txt2Pcd(string record_name) {
+	string txt_path = "./PointCloudData/" + record_name + "/";
+	std::vector<std::string> txtFiles;
+
+	for (auto& v : directory_iterator(txt_path))
+	{
+		txtFiles.push_back(v.path().string());
+	}
+	// 启动多线程处理每个 txt 文件
+	std::vector<std::thread> threads;
+	int n_threads = 20;
+	cout << "开始处理：" << record_name << "\n";
+	int n_files = 0;
+	for (const auto& txtFile : txtFiles) {
+		n_files++;
+
+		threads.emplace_back([txtFile, record_name]() {
+			processTxt(txtFile, record_name);
+			});
+
+		if (n_files % n_threads == 0)
+		{
+			Sleep(5000);
+		}
+	}
+	// 等待所有线程执行完毕
+	for (auto& thread : threads) {
+		thread.join();
+	}
+
+	cout << "处理完成：" << record_name << "\n";
+
+}
+void processTxt(const std::string& txtFile, const std::string record_name) {
+	string filename = path(txtFile).filename().string();
+	string pcd_path = "..\\PCD\\origin\\0310\\" + record_name + "\\";
+	if (0 != _access(pcd_path.c_str(), 0)) {
+		_mkdir(pcd_path.c_str());
+	}
+	std::ifstream file(txtFile);
+	std::string line;
+	pcl::PointXYZRGB point;
+	pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
+	while (getline(file, line)) {
+		std::stringstream ss(line);
+		ss >> point.x;
+		ss >> point.y;
+		ss >> point.z;
+		float f;
+		std::uint8_t r = 0, g = 0, b = 0;
+		ss >> f; r = f;
+		ss >> f; g = f;
+		ss >> f; b = f;
+		point.r = r;
+		point.g = g;
+		point.b = b;
+		cloud->push_back(point);
+	}
+	file.close();
+
+	string pcd_file = pcd_path + record_name + "-" + filename.substr(0, filename.rfind(".")) + ".pcd";
+	pcl::io::savePCDFileASCII(pcd_file, *cloud);
+}
 
 int KinectRecord::getTXT() {
 	enum DATA_TYPE type = TXT;
@@ -698,18 +770,19 @@ int KinectRecord::getTXT() {
 	return 1;
 }
 
-int KinectRecord::getPCD(Py py, int mode) {
+int KinectRecord::getPCD(int mode) {
 	if (mode == 0) {
 		enum DATA_TYPE type = ALL;
 		getData(type);
-		py.pyTxt2Pcd(filename, start_frame[0]);
+		//py.pyTxt2Pcd(filename, start_frame[0]);
 	}
 	else if (mode == 1) {
 		getTXT();
-		py.pyTxt2Pcd(filename, start_frame[0]);
+		//py.pyTxt2Pcd(filename, start_frame[0]);
 	}
 	else if (mode == 2) {
-		py.pyTxt2Pcd(filename, start_frame[0]);
+		//py.pyTxt2Pcd(filename, start_frame[0]);
+		txt2Pcd(filename);
 	}
 	return 1;
 }
