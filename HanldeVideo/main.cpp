@@ -3,9 +3,10 @@
 #include "pugixml.hpp"
 #include <iostream>
 #include <map>
+#include <thread>
+#include <vector>
 
 using namespace std;
-
 int main() {
 	// 加载 XML 文件
 	pugi::xml_document doc;
@@ -19,7 +20,7 @@ int main() {
 
 
 	// 从 XML 中读取数据并存储到 map 中
-	for (pugi::xml_node item : doc.child("info").find_child_by_attribute("data", "date", "0310").children("item")) {
+	for (pugi::xml_node item : doc.child("info").find_child_by_attribute("data", "date", "0111").children("item")) {
 		std::string key = item.attribute("key").as_string();
 		int value = item.text().as_int();
 		recordInfo[key] = value;
@@ -28,8 +29,9 @@ int main() {
 	// 逐个处理map中的记录
 	string filename;
 	int length = 0;
-	int *second; //数组
-	Py py;
+	int* second; //数组
+
+	//Py py;
 	for (const auto& pair : recordInfo) {
 		filename = pair.first;
 		length = pair.second;
@@ -38,23 +40,17 @@ int main() {
 		{
 			second[i] = i;
 		}
-		//video2Txt(filename, 11);
-		//pyTxt2Pcd(filename);
-		//PrintCalibrationFromFile(filename.c_str());
-
 		KinectRecord record(length);
 		if (record.initRecord(filename, second) == 0) {
 			continue;
 		}
 		/*	0: 生成txt、转pcd、生成RGBD
-			1：生成txt、转pcd
-			2：转pcd
+		1：生成txt、转pcd
+		2：转pcd
 		*/
-		record.getPCD(2);
+		record.getPCD(1);
 		//record.getRGBD();
-
 	}
-	py.closePy();
-
+	//py.closePy();
 	return 0;
 }

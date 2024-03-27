@@ -140,7 +140,7 @@ int video2Txt(string filename, int start_second) {
 	k4a_stream_result_t stream_result = k4a_playback_get_next_capture(handle, &capture);
 	if (stream_result == K4A_STREAM_RESULT_EOF)
 	{
-		printf("ERROR: Recording file is empty: %s\n", path);
+		printf("ERROR: Recording file is empty %s\n", path);
 		result = K4A_RESULT_FAILED;
 		goto Exit;
 	}
@@ -365,19 +365,19 @@ KinectRecord::KinectRecord(int length) {
 
 int KinectRecord::initRecord(string filename, int start_second[]) {
 	this->filename = filename;
-	string inPath = "D:/OneDrive - 西北农林科技大学/Master/Project_FatDepth/KinectDK/Video/0310/" + filename + ".mkv";
+	string inPath = "E:/luowenkuo/Video/0111/" + filename + ".mkv";
 	//string temp = "../RecordVideo/" + filename;
 	const char* path = inPath.c_str();	//输入的文件路径
 
-	string outPath = "./PointCloudData/" + filename;
+	string outPath = "../PCD/origin/0111/" + filename;
 	const char* destPath = outPath.c_str();	//输出的文件路径
 
-	//if (_access(destPath, 0) == 0) { //判断该文件夹是否存在
-	//	cout << "已跳过:" << filename << endl;
-	//	return 0;
-	//}
+	if (_access(destPath, 0) == 0) { //判断该文件夹是否存在
+		cout << "已跳过:" << filename << endl;
+		return 0;
+	}
 
-	for (size_t i = 0; i < length; i++)
+	for (int i = 0; i < length; i++)
 	{
 		start_frame[i] = start_second[i] * 30;	//开始帧，用于截取片段
 	}
@@ -509,10 +509,10 @@ int KinectRecord::getData(enum DATA_TYPE type) {
 		//前六帧无彩色图，跳过
 		k4a_playback_get_next_capture(handle, &capture);
 	}
-
+	cout << "开始处理：" << filename << "\n";
 	//Py_SetPythonHome(L"D:\\anaconda3\\envs\\BCS"); // 定义python解释器
 	//Py_Initialize(); // 初始化python接口
-
+	std::vector<std::thread> threads;
 	for (int i = 0; i < length; i++)
 	{
 		// 跳过无用帧
@@ -521,6 +521,8 @@ int KinectRecord::getData(enum DATA_TYPE type) {
 			k4a_capture_release(capture);
 			cur_frame++;
 		}
+
+		int n = 0;
 
 		// 开始输出
 		while (cur_frame <= start_frame[i] + LIMIT_FRAME) {
@@ -553,29 +555,40 @@ int KinectRecord::getData(enum DATA_TYPE type) {
 			//	return -1;
 			//}
 			k4a_image_t trans_color_image = NULL;
-			k4a_image_t trans_depth_image = NULL;
+			//k4a_image_t trans_depth_image = NULL;
 			trans_color_image = getTransColorImage(depth_image, color_image, cur_frame);
-			trans_depth_image = getTransDepthImage(depth_image, color_image, cur_frame);
+			//trans_depth_image = getTransDepthImage(depth_image, color_image, cur_frame);
 
 			if (type == TXT || type == ALL) {
 				k4a_image_t point_cloud_image = NULL;
 				point_cloud_image = getPointCloudImage(depth_image, color_image);
-				saveTXT(point_cloud_image, depth_image, trans_color_image, cur_frame);
+				n++;
+				threads.emplace_back(&KinectRecord::saveTXT, this, point_cloud_image, depth_image, trans_color_image, cur_frame);
 			}
 			if (type == RGBD || type == ALL) {
 				saveRGBD(trans_color_image, cur_frame);
 			}
 
 			k4a_capture_release(capture);
+			if (n % 6 == 0) {
+				//等待所有线程执行完毕
+				for (auto& thread : threads) {
+					thread.join();
+				}
+				threads.clear();	
+			}
 			cur_frame++;
 		}
 		//pyTxt2Pcd(filename, start_frame[i]);
-		cout << filename << ' ' << start_frame[i] / 30 << endl;
-
+		for (auto& thread : threads) {
+			thread.join();
+		}
+		threads.clear();
+		cout << start_frame[i] / 30 << ' ';
 	}
 
 	//Py_Finalize(); //结束python接口
-
+	cout << "处理完成：" << filename << "\n";
 	return 1;
 
 }
@@ -613,50 +626,53 @@ int KinectRecord::saveTXT(k4a_image_t point_cloud_image, k4a_image_t depth_image
 	int height = k4a_image_get_height_pixels(color_image);
 
 	int16_t* point_cloud_image_data = (int16_t*)(void*)k4a_image_get_buffer(point_cloud_image);//访问深度图像缓存区
-	uint8_t* depth_image_data = k4a_image_get_buffer(depth_image);
+	//uint8_t* depth_image_data = k4a_image_get_buffer(depth_image);
 	uint8_t* color_buffer = k4a_image_get_buffer(color_image);		//访问彩色图像缓存区
 
 	int count = width * height;
 
 	int pos = filename.find(".");
 	string record_name = filename.substr(0, pos);
-	string txt_name = to_string(cur_frame) + ".txt";
+	string txt_name = filename + "-" + to_string(cur_frame) + ".pcd";
 
-	string txt_dir = "./PointCloudData/" + filename + "/";
+	//string txt_dir = "./PointCloudData/0111/" + filename + "/";
+	string txt_dir = "../PCD/origin/0111/" + filename + "/";
 	if (0 != _access(txt_dir.c_str(), 0)) {
 		_mkdir(txt_dir.c_str());
 	}
 
-	FILE* fp = NULL;
+	//FILE* fp = NULL;
 	string txt_path = txt_dir + txt_name;
-	fp = fopen(txt_path.c_str(), "w");//在项目目录下输出文件名
+	//fp = fopen(txt_path.c_str(), "w");//在项目目录下输出文件名
 	//cout << txt_name << endl;
 
-	int x, y, z, order;
-	VERTEXRGB rgb;
-	VERTEX3D point;
+	int order;
+	pcl::PointXYZRGB point;
+	pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
 
 	for (int row = 0; row < height; row++) {
 		for (int col = 0; col < width; col++) {
 			order = row * width + col;
-			x = point_cloud_image_data[3 * order + 0];
-			y = -point_cloud_image_data[3 * order + 1];
-			z = -point_cloud_image_data[3 * order + 2];
+			point.x = point_cloud_image_data[3 * order + 0];
+			point.y = -point_cloud_image_data[3 * order + 1];
+			point.z = -point_cloud_image_data[3 * order + 2];
 
 
-			rgb.b = color_buffer[4 * order + 0];
-			rgb.g = color_buffer[4 * order + 1];
-			rgb.r = color_buffer[4 * order + 2];
+			point.b = color_buffer[4 * order + 0];
+			point.g = color_buffer[4 * order + 1];
+			point.r = color_buffer[4 * order + 2];
 
-			if (x == 0 && y == 0 && z == 0 || z < -1500) {
+			if (point.x == 0 && point.y == 0 && point.z == 0 || point.z < -1500) {
 				continue;
 			}
+			cloud->push_back(point);
 
-			point.x = x; point.y = y; point.z = z + 1500; // 加相机高度
-			fprintf(fp, "%d %d %d %d %d %d\n", point.x, point.y, point.z, rgb.r, rgb.g, rgb.b);
+			point.z += 1000; // 加相机高度
+			//fprintf(fp, "%d %d %d %d %d %d\n", point.x, point.y, point.z, rgb.r, rgb.g, rgb.b);
 		}
 	}
-	fclose(fp);
+	pcl::io::savePCDFileASCII(txt_path, *cloud);
+	cloud.reset();
 	return 1;
 }
 
