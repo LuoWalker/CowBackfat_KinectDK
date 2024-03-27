@@ -2,17 +2,17 @@
 #define myPointNormal pcl::PointCloud<pcl::PointNormal>
 #include "GetObj.h"
 #include <iostream>
-#include <pcl/filters/extract_indices.h>
-#include <pcl/registration/icp.h>
-#include <pcl/octree/octree_pointcloud_changedetector.h>
 #include <pcl/common/transforms.h>
+#include <pcl/filters/extract_indices.h>
 #include <pcl/filters/statistical_outlier_removal.h>
-#include <pcl/surface/mls.h>
-#include <pcl/kdtree/kdtree.h>
-#include <pcl/visualization/pcl_visualizer.h>
 #include <pcl/io/io.h>
 #include <pcl/io/pcd_io.h>//pcd 读写类相关的头文件。
+#include <pcl/kdtree/kdtree.h>
+#include <pcl/octree/octree_pointcloud_changedetector.h>
+#include <pcl/registration/icp.h>
 #include <pcl/segmentation/extract_clusters.h>
+#include <pcl/surface/mls.h>
+#include <pcl/visualization/pcl_visualizer.h>
 using namespace pcl;
 using std::cout;
 using std::endl;
@@ -139,14 +139,41 @@ myPointXYZ::Ptr removeOtherObj(myPointXYZ::Ptr target_cloud) {
 	return maxCluster;
 }
 
+myPointXYZRGB::Ptr removeOtherObj(myPointXYZRGB::Ptr target_cloud) {
+	pcl::search::KdTree<pcl::PointXYZRGB>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZRGB>);
+	tree->setInputCloud(target_cloud);
+
+	int num_points = target_cloud->points.size();
+
+	pcl::EuclideanClusterExtraction<pcl::PointXYZRGB> ec;
+	ec.setClusterTolerance(10); // 设置欧式聚类的容差
+	ec.setMinClusterSize(0);   // 设置最小的聚类大小
+	ec.setMaxClusterSize(num_points);  // 设置最大的聚类大小
+	ec.setSearchMethod(tree);
+	ec.setInputCloud(target_cloud);
+
+	std::vector<pcl::PointIndices> cluster_indices;
+	ec.extract(cluster_indices);
+
+	myPointXYZRGB::Ptr maxCluster(new myPointXYZRGB);
+
+	std::sort(cluster_indices.begin(), cluster_indices.end(), [](pcl::PointIndices a, pcl::PointIndices b) {
+		return a.indices.size() > b.indices.size();
+		});
+
+	pcl::copyPointCloud(*target_cloud, cluster_indices[0], *maxCluster);
+
+	return maxCluster;
+}
+
 myPointNormal::Ptr smoothByMLS(myPointXYZ::Ptr target_cloud) {
 	myPointNormal::Ptr target_cloud_smooth(new myPointNormal);
 	search::KdTree<PointXYZ>::Ptr kdtree;
 	MovingLeastSquares<PointXYZ, PointNormal> mls;
 	mls.setInputCloud(target_cloud);
 	mls.setSearchRadius(10); // 拟合半径
-	mls.setPolynomialFit(true); // 利用多项式
-	mls.setPolynomialFit(3); // 三阶
+	mls.setPolynomialOrder(true); // 利用多项式
+	mls.setPolynomialOrder(3); // 三阶
 	mls.setSearchMethod(kdtree);
 	mls.process(*target_cloud_smooth);
 
@@ -194,4 +221,18 @@ myPointXYZ::Ptr getObj(myPointXYZ::Ptr target_cloud, myPointXYZ::Ptr source_clou
 	}*/
 
 	return source_cloud_denoise;
+}
+
+void myVisualization(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, const char* windowName) {
+	visualization::PCLVisualizer viewer(windowName);
+	viewer.setBackgroundColor(0.5, 0.5, 0.5); // 设置背景色,RGB,0~1
+
+	viewer.addCoordinateSystem(1000.0);
+	visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB> rgb(cloud); // 获取点云颜色
+	viewer.addPointCloud<pcl::PointXYZRGB>(cloud, rgb, "cloud"); // 显示点云，其中fildColor为颜色显示
+	viewer.setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 5, "cloud");
+
+	while (!viewer.wasStopped()) {
+		viewer.spinOnce();
+	}
 }

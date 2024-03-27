@@ -4,12 +4,12 @@ import open3d as o3d
 import numpy as np
 import os
 
-dir = "../../PCD/origin/"
+dir = "../../PCD/origin/0310/"
 pcd_paths = os.listdir(dir)
 for pcd_path in pcd_paths:
     if pcd_path.startswith("0513") or pcd_path.startswith("0321"):
         continue
-    out_path = "../../PCD/object/" + pcd_path + "/"
+    out_path = "../../PCD/object/0310/" + pcd_path + "/"
     if not os.path.exists(out_path):
         os.mkdir(out_path)
     else:
@@ -52,8 +52,10 @@ for pcd_path in pcd_paths:
         # 将最大点数的聚类保存为新的点云
         # max_cluster_points.paint_uniform_color([1, 0, 0])
         # o3d.visualization.draw_geometries([max_cluster_points])
-        out_path = "../../PCD/object/" + pcd_path + "/"
+        out_path = "../../PCD/object/0310/" + pcd_path + "/"
         if not os.path.exists(out_path):
             os.mkdir(out_path)
-        o3d.io.write_point_cloud(out_path + pcd_file, max_cluster_points)
+        o3d.io.write_point_cloud(
+            out_path + pcd_file, max_cluster_points, write_ascii=True
+        )
         print(out_path + pcd_file)
