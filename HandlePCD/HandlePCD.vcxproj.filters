@@ -15,21 +15,21 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="GetObj.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="GetFeature.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="main.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="GetFeature.hpp">
+      <Filter>头文件</Filter>
+    </ClCompile>
+    <ClCompile Include="GetObj.hpp">
+      <Filter>头文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="GetObj.h">
+    <ClInclude Include="GetFeature.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="GetFeature.h">
+    <ClInclude Include="GetObj.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

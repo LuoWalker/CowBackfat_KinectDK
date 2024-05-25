@@ -127,6 +127,7 @@
       <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions</EnableEnhancedInstructionSet>
+      <OpenMPSupport>true</OpenMPSupport>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -154,9 +155,9 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="GetFeature.cpp" />
+    <ClCompile Include="GetFeature.hpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="GetObj.cpp" />
+    <ClCompile Include="GetObj.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GetFeature.h" />
