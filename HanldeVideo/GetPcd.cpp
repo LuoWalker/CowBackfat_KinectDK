@@ -7,7 +7,6 @@
 #include <k4a/k4a.hpp>
 #include <cstdlib>
 #include <fstream>
-#include <vector>
 #include <opencv2/opencv.hpp>
 #include <direct.h>
 #include <Windows.h>
@@ -16,6 +15,7 @@
 #include <pcl/io/pcd_io.h>
 #include <filesystem>
 #include <algorithm>
+#include "AboutCamera.h"
 
 using namespace std;
 using namespace pcl;
@@ -35,63 +35,14 @@ typedef struct VERTEX_RGB
 	uint8_t g;
 	uint8_t b;
 } VERTEXRGB;
+typedef struct IMAGE_TIME {
+	int frame;
+	uint64_t image_timestamp;
+}IMAGETIME;
 
-/* 直接获取PCD，速度慢 */
-//int KinectRecord::getPCDDirect(k4a_image_t point_cloud_image, k4a_image_t depth_image, int cur_frame) {
-//	if (point_cloud_image == NULL || depth_image == NULL) {
-//		cout << "image is null" << endl;
-//		return -1;
-//	}
-//	int width = k4a_image_get_width_pixels(point_cloud_image);
-//	int height = k4a_image_get_height_pixels(point_cloud_image);
-//
-//	int16_t* point_cloud_image_data = (int16_t*)(void*)k4a_image_get_buffer(point_cloud_image);//访问深度图像缓存区
-//	uint8_t* depth_image_data = k4a_image_get_buffer(depth_image);
-//
-//	cout << width << ' ' << height << endl;
-//	int count = width * height;
-//	pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud = pcl::PointCloud<pcl::PointXYZ>::Ptr(new pcl::PointCloud<pcl::PointXYZ>);
-//
-//	point_cloud->is_dense = true;
-//	//point_cloud->resize(point_cloud->width*point_cloud->height);
-//	//cout << point_cloud->points.size() << endl;
-//
-//	int pos = filename.find(".");
-//	string record_name = filename.substr(0, pos);
-//	string pcd_name = record_name + '-' + to_string(cur_frame);
-//	cout << pcd_name << endl;
-//	int x, y, z, order;
-//
-//	pcl::PointXYZ point;
-//	for (int row = 0; row < height; row++) {
-//		for (int col = 0; col < width; col++) {
-//			order = row * width + col;
-//			x = point_cloud_image_data[3 * order + 0];
-//			y = -point_cloud_image_data[3 * order + 1];
-//			z = -point_cloud_image_data[3 * order + 2];
-//
-//			if (x == 0 && y == 0 && z == 0 || z < -1500) {
-//				continue;
-//			}
-//
-//			point.x = x; point.y = y; point.z = z + 2400; // 加相机高度
-//
-//			point_cloud->points.push_back(point);
-//		}
-//	}
-//	cout << point_cloud->points.size() << endl;
-//
-//	point_cloud->width = point_cloud->points.size();
-//	point_cloud->height = 1;
-//	string pcd_path = "../PCD/test/" + record_name + '/' + pcd_name + ".pcd";
-//
-//	pcl::io::savePCDFile(pcd_path, *point_cloud);
-//
-//	return 1;
-//}
 
 int video2Txt(string filename, int start_second) {
-	string temp = "../Video/0513/" + filename;
+	string temp = "../Video/0111/" + filename;
 	const char* path = temp.c_str();	//输入的文件路径
 	int no_frame = 0;				//帧序号，从0开始
 	int start_frame = start_second * 30;	//开始帧，用于截取片段
@@ -363,19 +314,20 @@ KinectRecord::KinectRecord(int length) {
 	start_frame = new int[length];
 }
 
-int KinectRecord::initRecord(string filename, int start_second[]) {
+int KinectRecord::initRecord(string dirname, string filename, int start_second[]) {
 	this->filename = filename;
-	string inPath = "E:/luowenkuo/Video/0111/" + filename + ".mkv";
+	this->dirname = dirname;
+	string inPath = "E:/luowenkuo/Video/" + dirname + "/" + filename + ".mkv";
 	//string temp = "../RecordVideo/" + filename;
 	const char* path = inPath.c_str();	//输入的文件路径
 
-	string outPath = "../PCD/origin/0111/" + filename;
+	string outPath = "../PCD/origin/" + dirname + "/" + filename;
 	const char* destPath = outPath.c_str();	//输出的文件路径
 
-	if (_access(destPath, 0) == 0) { //判断该文件夹是否存在
-		cout << "已跳过:" << filename << endl;
-		return 0;
-	}
+	//if (_access(destPath, 0) == 0) { //判断该文件夹是否存在
+	//	cout << "已跳过:" << filename << endl;
+	//	return 0;
+	//}
 
 	for (int i = 0; i < length; i++)
 	{
@@ -442,7 +394,6 @@ k4a_image_t KinectRecord::getPointCloudImage(k4a_image_t depth_image, k4a_image_
 		cout << "Failed to compute point cloud" << endl;
 		return NULL;
 	}
-	k4a_image_release(depth_image);
 	return point_cloud_image;
 }
 
@@ -460,19 +411,15 @@ k4a_image_t KinectRecord::getTransColorImage(k4a_image_t depth_image, k4a_image_
 		&trans_color_image))
 	{
 		cout << "Failed to create transformed color image" << endl;
-		return NULL;
 	}
-
 	//将彩色图图转为深度图视点
 	if (K4A_RESULT_SUCCEEDED !=
 		k4a_transformation_color_image_to_depth_camera(trans_handle, depth_image, color_image, trans_color_image))
 	{
 		cout << "Failed to compute transformed color image" << endl;
-		return NULL;
 	}
-	else {
-		return trans_color_image;
-	}
+
+	return trans_color_image;
 }
 
 k4a_image_t KinectRecord::getTransDepthImage(k4a_image_t depth_image, k4a_image_t color_image, int cur_frame) {
@@ -488,7 +435,6 @@ k4a_image_t KinectRecord::getTransDepthImage(k4a_image_t depth_image, k4a_image_
 		&trans_depth_image))
 	{
 		cout << "Failed to create transformed color image" << endl;
-		return NULL;
 	}
 
 	//将彩色图图转为深度图视点
@@ -496,25 +442,30 @@ k4a_image_t KinectRecord::getTransDepthImage(k4a_image_t depth_image, k4a_image_
 		k4a_transformation_depth_image_to_color_camera(trans_handle, depth_image, trans_depth_image))
 	{
 		cout << "Failed to compute transformed color image" << endl;
-		return NULL;
 	}
-	else {
-		return trans_depth_image;
-	}
+	return trans_depth_image;
 }
 
 int KinectRecord::getData(enum DATA_TYPE type) {
 	int cur_frame = 0;
+
 	for (cur_frame; cur_frame < 6; cur_frame++) {
 		//前六帧无彩色图，跳过
 		k4a_playback_get_next_capture(handle, &capture);
+		k4a_capture_release(capture);
 	}
-	cout << "开始处理：" << filename << "\n";
+	std::cout << "开始处理：" << filename << "\n";
 	//Py_SetPythonHome(L"D:\\anaconda3\\envs\\BCS"); // 定义python解释器
 	//Py_Initialize(); // 初始化python接口
 	std::vector<std::thread> threads;
+	vector<MYIMUSAMPLE> my_imu_samples{};
+	k4a_imu_sample_t imu_sample;
+
 	for (int i = 0; i < length; i++)
 	{
+		vector<IMAGETIME> depth_image_timestamps;
+		IMAGETIME depth_iamge_timestamp{};
+
 		// 跳过无用帧
 		while (cur_frame <= start_frame[i]) {
 			k4a_playback_get_next_capture(handle, &capture);
@@ -543,17 +494,17 @@ int KinectRecord::getData(enum DATA_TYPE type) {
 
 			k4a_image_t depth_image = k4a_capture_get_depth_image(capture);
 			k4a_image_t color_image = k4a_capture_get_color_image(capture);
+			k4a_capture_release(capture);
+			depth_iamge_timestamp.frame = cur_frame;
+			depth_iamge_timestamp.image_timestamp = k4a_image_get_device_timestamp_usec(depth_image);
+			depth_image_timestamps.push_back(depth_iamge_timestamp);
 
-			//if (depth_image == NULL)
-			//{
-			//	cout << "Failed to get depth image from capture" << endl;
-			//	return -1;
-			//}
-			//if (color_image == NULL)
-			//{
-			//	cout << "Failed to get color image from capture" << endl;
-			//	return -1;
-			//}
+			getIMU(depth_iamge_timestamp.image_timestamp, &imu_sample);
+			MYIMUSAMPLE my_imu_sample{};
+			my_imu_sample.cur_frame = cur_frame;
+			my_imu_sample.imu_sample = imu_sample;
+			my_imu_samples.push_back(my_imu_sample);
+
 			k4a_image_t trans_color_image = NULL;
 			//k4a_image_t trans_depth_image = NULL;
 			trans_color_image = getTransColorImage(depth_image, color_image, cur_frame);
@@ -565,30 +516,37 @@ int KinectRecord::getData(enum DATA_TYPE type) {
 				n++;
 				threads.emplace_back(&KinectRecord::saveTXT, this, point_cloud_image, depth_image, trans_color_image, cur_frame);
 			}
-			if (type == RGBD || type == ALL) {
-				saveRGBD(trans_color_image, cur_frame);
-			}
+			//if (type == RGBD || type == ALL) {
+			//	saveRGBD(trans_color_image, cur_frame);
+			//}
+			k4a_image_release(color_image);
+			k4a_image_release(depth_image);
 
-			k4a_capture_release(capture);
 			if (n % 6 == 0) {
 				//等待所有线程执行完毕
 				for (auto& thread : threads) {
 					thread.join();
 				}
-				threads.clear();	
+				threads.clear();
 			}
 			cur_frame++;
 		}
 		//pyTxt2Pcd(filename, start_frame[i]);
+		if (type == IMU || type == ALL)
+			saveIMU(my_imu_samples);
+
 		for (auto& thread : threads) {
 			thread.join();
 		}
 		threads.clear();
-		cout << start_frame[i] / 30 << ' ';
+		std::cout << start_frame[i] / 30 << ' ';
 	}
-
+	for (auto& thread : threads) {
+		thread.join();
+	}
+	threads.clear();
 	//Py_Finalize(); //结束python接口
-	cout << "处理完成：" << filename << "\n";
+	std::cout << "处理完成：" << filename << "\n";
 	return 1;
 
 }
@@ -606,7 +564,7 @@ int KinectRecord::saveRGBD(k4a_image_t trans_image, int cur_frame) {
 	//cv::Mat cv_rgbdImage_8U;
 	//rgbdframe.convertTo(cv_rgbdImage_8U, CV_8U, 1);
 
-	string outpath_rgbd = "./RGBD_img/" + filename + "/";
+	string outpath_rgbd = "./RGBD_img/" + dirname + "/" + filename + "/";
 	if (0 != _access(outpath_rgbd.c_str(), 0)) {
 		_mkdir(outpath_rgbd.c_str());
 	}
@@ -627,7 +585,7 @@ int KinectRecord::saveTXT(k4a_image_t point_cloud_image, k4a_image_t depth_image
 
 	int16_t* point_cloud_image_data = (int16_t*)(void*)k4a_image_get_buffer(point_cloud_image);//访问深度图像缓存区
 	//uint8_t* depth_image_data = k4a_image_get_buffer(depth_image);
-	uint8_t* color_buffer = k4a_image_get_buffer(color_image);		//访问彩色图像缓存区
+	//uint8_t* color_buffer = k4a_image_get_buffer(color_image);		//访问彩色图像缓存区
 
 	int count = width * height;
 
@@ -635,11 +593,11 @@ int KinectRecord::saveTXT(k4a_image_t point_cloud_image, k4a_image_t depth_image
 	string record_name = filename.substr(0, pos);
 	string txt_name = filename + "-" + to_string(cur_frame) + ".pcd";
 
-	//string txt_dir = "./PointCloudData/0111/" + filename + "/";
-	string txt_dir = "../PCD/origin/0111/" + filename + "/";
-	if (0 != _access(txt_dir.c_str(), 0)) {
-		_mkdir(txt_dir.c_str());
-	}
+	//string txt_dir = "./PointCloudData/" + dirname + "/" + filename + "/";
+	string txt_dir = "../PCD/origin/" + dirname + "/" + filename + "/";
+	//if (0 != _access(txt_dir.c_str(), 0)) {
+	//	_mkdir(txt_dir.c_str());
+	//}
 
 	//FILE* fp = NULL;
 	string txt_path = txt_dir + txt_name;
@@ -647,32 +605,51 @@ int KinectRecord::saveTXT(k4a_image_t point_cloud_image, k4a_image_t depth_image
 	//cout << txt_name << endl;
 
 	int order;
-	pcl::PointXYZRGB point;
-	pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
+	pcl::PointXYZ point;
+	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
 
 	for (int row = 0; row < height; row++) {
 		for (int col = 0; col < width; col++) {
 			order = row * width + col;
 			point.x = point_cloud_image_data[3 * order + 0];
-			point.y = -point_cloud_image_data[3 * order + 1];
-			point.z = -point_cloud_image_data[3 * order + 2];
+			point.y = point_cloud_image_data[3 * order + 1];
+			point.z = point_cloud_image_data[3 * order + 2];
 
 
-			point.b = color_buffer[4 * order + 0];
-			point.g = color_buffer[4 * order + 1];
-			point.r = color_buffer[4 * order + 2];
+			//point.b = color_buffer[4 * order + 0];
+			//point.g = color_buffer[4 * order + 1];
+			//point.r = color_buffer[4 * order + 2];
 
-			if (point.x == 0 && point.y == 0 && point.z == 0 || point.z < -1500) {
+			if (point.x == 0 && point.y == 0 && point.z == 0 || point.z > 1500) {
 				continue;
 			}
+
+			//point.z += 1000; // 加相机高度
+
 			cloud->push_back(point);
 
-			point.z += 1000; // 加相机高度
 			//fprintf(fp, "%d %d %d %d %d %d\n", point.x, point.y, point.z, rgb.r, rgb.g, rgb.b);
 		}
 	}
 	pcl::io::savePCDFileASCII(txt_path, *cloud);
 	cloud.reset();
+	return 1;
+}
+
+int KinectRecord::saveIMU(vector<MYIMUSAMPLE> my_imu_samples) {
+	string out_dir = "../IMU/" + dirname + "/";
+	string filepath = out_dir + filename + ".txt";
+
+	k4a_imu_sample_t imu_sample{};
+	ofstream f(filepath, ios::ate);
+	for (MYIMUSAMPLE my_imu_sample : my_imu_samples)
+	{
+		imu_sample = my_imu_sample.imu_sample;
+		f << my_imu_sample.cur_frame << " " << imu_sample.acc_sample.v[0] << " " << imu_sample.acc_sample.v[1] << " " << imu_sample.acc_sample.v[2] << " "
+			<< imu_sample.gyro_sample.v[0] << " " << imu_sample.gyro_sample.v[1] << " " << imu_sample.gyro_sample.v[2] << " "
+			<< imu_sample.gyro_timestamp_usec << endl;
+	}
+	f.close();
 	return 1;
 }
 
@@ -800,6 +777,11 @@ int KinectRecord::getPCD(int mode) {
 		//py.pyTxt2Pcd(filename, start_frame[0]);
 		txt2Pcd(filename);
 	}
+	else if (mode == 3)
+	{
+		enum DATA_TYPE type = IMU;
+		getData(type);
+	}
 	return 1;
 }
 
@@ -807,4 +789,48 @@ int KinectRecord::getRGBD() {
 	enum DATA_TYPE type = RGBD;
 	getData(type);
 	return 1;
+}
+
+void KinectRecord::getIMU() {
+	k4a_imu_sample_t imu_sample{};
+	vector<k4a_imu_sample_t> imu_samples;
+	int64_t offset_usec = record_config.start_timestamp_offset_usec;
+
+	if (k4a_playback_seek_timestamp(handle,
+		offset_usec,
+		K4A_PLAYBACK_SEEK_BEGIN) != K4A_RESULT_SUCCEEDED) {
+	}
+
+	while (k4a_playback_get_next_imu_sample(handle, &imu_sample) == K4A_STREAM_RESULT_SUCCEEDED)
+	{
+		offset_usec += 1000000;
+		if (k4a_playback_seek_timestamp(handle,
+			offset_usec,
+			K4A_PLAYBACK_SEEK_BEGIN) == K4A_RESULT_SUCCEEDED) {
+			imu_samples.push_back(imu_sample);
+		}
+	}
+
+	ofstream f("./imutestoffset.txt", ios::app);
+
+	for (int i = 0; i < imu_samples.size(); i++)
+	{
+		f << imu_samples[i].acc_sample.v[0] << " " << imu_samples[i].acc_sample.v[1] << " " << imu_samples[i].acc_sample.v[2] << " "
+			<< imu_samples[i].gyro_sample.v[0] << " " << imu_samples[i].gyro_sample.v[1] << " " << imu_samples[i].gyro_sample.v[2] << " "
+			<< imu_samples[i].gyro_timestamp_usec << endl;
+	}
+	f.close();
+}
+
+void KinectRecord::getIMU(int64_t offset_usec, k4a_imu_sample_t* imu_sample) {
+	if (k4a_playback_seek_timestamp(handle, offset_usec - 600 - record_config.start_timestamp_offset_usec, K4A_PLAYBACK_SEEK_BEGIN) != K4A_RESULT_SUCCEEDED) {
+		cout << "error seek timestamp" << "\n";
+	}
+	if (k4a_playback_get_next_imu_sample(handle, imu_sample) != K4A_STREAM_RESULT_SUCCEEDED) {
+		cout << "error get imu" << "\n";
+	}
+	k4a_playback_get_next_capture(handle, &capture);
+	k4a_capture_release(capture);
+
+	cout << "";
 }
