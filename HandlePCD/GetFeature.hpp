@@ -1,54 +1,62 @@
 #pragma once
-#include "GetFeature.h"
+#include "GetObj.hpp"
+#include "utils.h"
+#include <boost/container_hash/is_contiguous_range.hpp>
 #include <cmath>
+#include <cstdlib>
 #include <Eigen/Dense>
 #include <Eigen/src/Core/Matrix.h>
+#include <Eigen/src/Core/MatrixBase.h>
+#include <Eigen/src/Eigenvalues/SelfAdjointEigenSolver.h>
 #include <Eigen/src/Geometry/AngleAxis.h>
-#include <iostream>
-#include <omp.h>
-#include <pcl/common/common.h>
-#include <pcl/common/transforms.h>
-#include <pcl/features/fpfh.h>
-#include <pcl/features/normal_3d.h>
+#include <Eigen/src/Geometry/Transform.h>
+#include <limits>
+#include <pcl/correspondence.h>
 #include <pcl/features/normal_3d_omp.h>
-#include <pcl/features/principal_curvatures.h>
 #include <pcl/filters/extract_indices.h>
-#include <pcl/filters/passthrough.h>
-#include <pcl/filters/random_sample.h>
 #include <pcl/filters/normal_space.h>
+#include <pcl/filters/passthrough.h>
+#include <pcl/filters/radius_outlier_removal.h>
+#include <pcl/filters/statistical_outlier_removal.h>
 #include <pcl/filters/uniform_sampling.h>
 #include <pcl/filters/voxel_grid.h> 
+#include <pcl/impl/point_types.hpp>
 #include <pcl/io/pcd_io.h>
 #include <pcl/kdtree/kdtree_flann.h>
+#include <pcl/ModelCoefficients.h>
+#include <pcl/pcl_macros.h>
+#include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
+#include <pcl/PointIndices.h>
 #include <pcl/registration/correspondence_estimation.h>
+#include <pcl/sample_consensus/method_types.h>
+#include <pcl/sample_consensus/model_types.h>
 #include <pcl/sample_consensus/ransac.h>
 #include <pcl/sample_consensus/sac_model_line.h> // 拟合直线
-#include <pcl/segmentation/region_growing.h>
+#include <pcl/search/kdtree.h>
+#include <pcl/segmentation/extract_clusters.h>
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl/surface/convex_hull.h>
+#include <pcl/surface/mls.h>
+#include <pcl/visualization/common/common.h>
 #include <pcl/visualization/pcl_visualizer.h>
-#include <string>
+#include <pcl/visualization/point_cloud_color_handlers.h>
 #include <vector>
 
-//曲率计算结构体
-typedef struct CURVATURE {
-	int index;
-	float curvature;
-}CURVATURE;
 
+using namespace pcl;
 
-// 计算法矢量夹角A
-static double calculateAngleA(const Eigen::Vector3f& normal, const std::vector<Eigen::Vector3f>& neighbor_normals) {
-	double sum_dot_products = 0.0;
-	for (const auto& neighbor_normal : neighbor_normals) {
-		sum_dot_products += std::abs(normal.dot(neighbor_normal));
-	}
-	return sum_dot_products / neighbor_normals.size();
-}
+struct IMUSAMPLE
+{
+	int cur_frame;
+	float acc_x;
+	float acc_y;
+	float acc_z;
+};
 
 // 计算曲率
-static double calculateCurvature(const PointCloud<PointXYZ>::Ptr& cloud, const std::vector<int>& indices) {
+template<typename PT>
+double calculateCurvature(typename PointCloud<PT>::Ptr cloud, const std::vector<int>& indices) {
 	Eigen::MatrixXf points_matrix(indices.size(), 3);
 	for (size_t i = 0; i < indices.size(); ++i) {
 		points_matrix(i, 0) = cloud->points[indices[i]].x;
@@ -60,15 +68,6 @@ static double calculateCurvature(const PointCloud<PointXYZ>::Ptr& cloud, const s
 	Eigen::MatrixXf cov = (centered.adjoint() * centered) / double(points_matrix.rows() - 1);
 	Eigen::SelfAdjointEigenSolver<Eigen::MatrixXf> eig(cov);
 	return eig.eigenvalues()(0);
-}
-
-// 计算曲率均方差σ_D
-static double calculateCurvatureStdDev(const std::vector<double>& curvatures, double mean_curvature) {
-	double sum = 0.0;
-	for (const auto& curvature : curvatures) {
-		sum += (curvature - mean_curvature) * (curvature - mean_curvature);
-	}
-	return std::sqrt(sum / curvatures.size());
 }
 
 template<typename PT>
@@ -158,14 +157,14 @@ void rotationByVecotr(typename PointCloud<PT>::Ptr source_cloud, typename PointC
 
 template<typename PT>
 void limitZ(typename PointCloud<PT>::Ptr source_cloud) {
-	PT min, max;
+	PT min{}, max{};
 
 	PassThrough<PT> pass;
 	getMinMax3D(*source_cloud, min, max);
 
 	pass.setInputCloud(source_cloud);
 	pass.setFilterFieldName("z");
-	pass.setFilterLimits(max.z - 500, max.z);
+	pass.setFilterLimits(max.z - 400, max.z);
 	pass.filter(*source_cloud);
 }
 
@@ -179,7 +178,6 @@ static float vectorAngle(const Eigen::Vector3f& x, const Eigen::Vector3f& y) {
 
 template<typename PT>
 void downSampleNormal(typename PointCloud<PT>::Ptr source_cloud) {
-
 	// 计算法向量和曲率
 	typename search::KdTree<PT>::Ptr kdtree(new search::KdTree<PT>);
 	kdtree->setInputCloud(source_cloud);
@@ -287,57 +285,15 @@ PointCloud<PT> normalDownSample(typename PointCloud<PT>::Ptr source_cloud) {
 }
 
 template<typename PT>
-PointCloud<PT> normalization(PointCloud<PT>& source_cloud) {
+PointCloud<PT> normalization(typename PointCloud<PT>::Ptr source_cloud) {
 
 	// 计算质心
 	Eigen::Vector4f centroid;
 	compute3DCentroid(*source_cloud, centroid);
 
 	// 将点云减去质心
-	PointCloud<PT> normalized_cloud(new PointCloud<PT>);
-	demeanPointCloud(*source_cloud, centroid, *normalized_cloud);
-
-	// 构建协方差矩阵
-	Eigen::Matrix3f covariance_matrix;
-	computeCovarianceMatrixNormalized(*normalized_cloud, centroid, covariance_matrix);
-
-	// 计算特征值和特征向量
-	Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> eigen_solver(covariance_matrix, Eigen::ComputeEigenvectors);
-	Eigen::Vector3f eigen_values = eigen_solver.eigenvalues();
-	Eigen::Matrix3f eigen_vectors = eigen_solver.eigenvectors();
-
-	// 对特征值进行排序并重排特征向量
-	std::vector<std::pair<double, Eigen::Vector3f>> eigen_pairs;
-	for (int i = 0; i < eigen_values.size(); ++i) {
-		eigen_pairs.push_back(std::make_pair(eigen_values(i), eigen_vectors.col(i)));
-	}
-	std::sort(eigen_pairs.begin(), eigen_pairs.end(), [](const auto& left, const auto& right) {
-		return left.first > right.first;
-		});
-	for (int i = 0; i < eigen_values.size(); ++i) {
-		eigen_values(i) = eigen_pairs[i].first;
-		eigen_vectors.col(i) = eigen_pairs[i].second;
-	}
-
-	//cout << "特征值:\n" << eigen_values << "\n";
-	//cout << "特征向量:\n" << eigen_vectors << "\n";
-	//cout << "质心点:\n" << centroid << "\n";
-
-	// 创建一个单位矩阵作为变换矩阵的初始化
-	Eigen::Matrix4f transform_matrix = Eigen::Matrix4f::Identity();
-
-	transform_matrix.block<3, 3>(0, 0) = eigen_vectors;
-	transformPointCloud(*normalized_cloud, *normalized_cloud, transform_matrix);
-
-	PT min{}, max{};
-	getMinMax3D(*normalized_cloud, min, max);
-	if (abs(min.x) > max.x) {
-		Eigen::Affine3f new_transform_matrix = Eigen::Affine3f::Identity();
-		// Z 轴上旋转 PI 弧度
-		new_transform_matrix.rotate(Eigen::AngleAxisf(M_PI, Eigen::Vector3f::UnitZ()));
-		transformPointCloud(*normalized_cloud, *normalized_cloud, new_transform_matrix);
-		cout << "绕Z轴转了180" << "\n";
-	}
+	PointCloud<PT> normalized_cloud;
+	demeanPointCloud(*source_cloud, centroid, normalized_cloud);
 	return normalized_cloud;
 }
 
@@ -389,8 +345,9 @@ void normalizationZ(typename PointCloud<PT>::Ptr source_cloud, IMUSAMPLE imu_sam
 	// Eigen::Vector3d v = { imu_samples[1],imu_samples[2],imu_samples[3] };
 	// 相机坐标系
 	Eigen::Vector3d v = { imu_sample.acc_y,-1.0 * imu_sample.acc_z,imu_sample.acc_x };
-
+	// 将Z轴与重力加速度向量对齐
 	rotationByVecotr<PT>(source_cloud, v, 2);
+
 	// 遍历点云并取反Z值
 	for (auto& point : *source_cloud) {
 		point.z = -point.z;
@@ -401,7 +358,7 @@ void normalizationZ(typename PointCloud<PT>::Ptr source_cloud, IMUSAMPLE imu_sam
 template<typename PT>
 void normalizationXOY(typename PointCloud<PT>::Ptr source_cloud, typename PointCloud<PT>::Ptr cloud_line) {
 	// 遍历点云，找到最大Z值的点
-	PT min, max;
+	PT min{}, max{};
 	getMinMax3D(*source_cloud, min, max);
 	int n = (max.x - min.x) / 10.0;
 	PT max_point;
@@ -459,8 +416,35 @@ void normalizationXOY(typename PointCloud<PT>::Ptr source_cloud, typename PointC
 }
 
 template<typename PT>
+void preProcess(typename PointCloud<PT>::Ptr source_cloud) {
+	// 遍历点云并取反Z值
+	for (auto& point : *source_cloud) {
+		point.z = -point.z;
+	}
+
+	PT min{}, max{};
+
+	PassThrough<PT> pass;
+	getMinMax3D(*source_cloud, min, max);
+	pass.setInputCloud(source_cloud);
+	pass.setFilterFieldName("x");
+	pass.setFilterLimits(min.x, min.x + 800);
+	pass.filter(*source_cloud);
+	//myVisualization<PT>(source_cloud, "limit x");
+
+
+	//getMinMax3D(*source_cloud, min, max);
+	//pass.setInputCloud(source_cloud);
+	//pass.setFilterFieldName("z");
+	//pass.setFilterLimits(max.z - 400, max.z);
+	//pass.filter(*source_cloud);
+	//myVisualization<PT>(source_cloud, "limit z");
+
+}
+
+template<typename PT>
 void limitArea(typename PointCloud<PT>::Ptr source_cloud) {
-	PT min, max;
+	PT min{}, max{};
 	//cout << "X轴最值" << min.x << ' ' << max.x << endl;
 	//cout << "Y轴最值" << min.y << ' ' << max.y << endl;
 	//cout << "Z轴最值" << min.z << ' ' << max.z << endl;
@@ -470,7 +454,7 @@ void limitArea(typename PointCloud<PT>::Ptr source_cloud) {
 
 	pass.setInputCloud(source_cloud);
 	pass.setFilterFieldName("x");
-	pass.setFilterLimits(min.x, min.x + 750);
+	pass.setFilterLimits(min.x, min.x + 700);
 	pass.filter(*source_cloud);
 
 	//pass.setFilterFieldName("y");
@@ -483,21 +467,91 @@ void limitArea(typename PointCloud<PT>::Ptr source_cloud) {
 	//pass.setFilterLimits(min.z, min.z + 500);
 	pass.filter(*source_cloud);
 
-	getMinMax3D(*source_cloud, min, max);
-	Eigen::Affine3f transform = Eigen::Affine3f::Identity();
-	transform.translation() << -min.x, -min.y, -min.z;
-	transform.rotate(Eigen::AngleAxisf(0, Eigen::Vector3f::UnitZ()));
-	transformPointCloud(*source_cloud, *source_cloud, transform);
+	//getMinMax3D(*source_cloud, min, max);
+	//Eigen::Affine3f transform = Eigen::Affine3f::Identity();
+	//transform.translation() << -min.x, -min.y, -min.z;
+	//transform.rotate(Eigen::AngleAxisf(0, Eigen::Vector3f::UnitZ()));
+	//transformPointCloud(*source_cloud, *source_cloud, transform);
 }
 
 template<typename PT>
-bool filterByVolume(typename PointCloud<PT>::Ptr source_cloud) {
+bool keyPointPosition(typename PointCloud<PT>::Ptr source_cloud) {
+	/*
+	* 	遍历点云，找到Y值跨度最大的区间，为腰角
+	*   得到区间右端X值，对点云进行裁切
+	*/
+
+	// 预处理
+	PassThrough<PT> pass;
+	PT min{}, max{};
+	getMinMax3D(*source_cloud, min, max);
+	//pass.setInputCloud(source_cloud);
+	//pass.setFilterFieldName("z");
+	//pass.setFilterLimits(max.z - 300, max.z);
+	//pass.filter(*source_cloud);
+
+	// 划分区间
+	int max_width = 0;
+	float gap = 10.0;
+	int n = (max.x - min.x) / gap + 1;
+	std::vector<double> intervals(n);
+	for (int i = 0; i < n; ++i) {
+		intervals[i] = min.x + i * gap;
+	}
+
+	// 统计每个区间的跨度
+	PointCloud<PT> bin_cloud;
+	std::vector<int> width(n, 0);
+	std::vector<PT> interval_min_y(n, { 0, std::numeric_limits<float>::max(), 0 });
+	std::vector<PT> interval_max_y(n, { 0, std::numeric_limits<float>::min(), 0 });
+	for (int i = 0; i < source_cloud->points.size(); i++) {
+		// 判断在哪个区间
+		int n = (source_cloud->points[i].x - min.x) / gap;
+		// 更新最值点
+		if (source_cloud->points[i].y < interval_min_y[n].y) {
+			interval_min_y[n] = source_cloud->points[i];
+		}
+		if (source_cloud->points[i].y > interval_max_y[n].y) {
+			interval_max_y[n] = source_cloud->points[i];
+		}
+	}
+	int tail_index = 0;
+	for (int i = 0; i < interval_min_y.size() / 3; i++) {
+		width[i] = interval_max_y[i].y - interval_min_y[i].y;
+		if (width[i] > 50 && tail_index == 0) {
+			tail_index = i;
+		}
+		else if (width[i] < 50 && tail_index != 0) {
+			tail_index = 0;
+		}
+	}
+
+	// 找到跨度最大的区间
+	int max_index = std::max_element(width.begin(), width.end()) - width.begin();
+	if (max_index < n / 2) { max_index = n - 2; }
+
+	pass.setInputCloud(source_cloud);
+	pass.setFilterFieldName("x");
+	pass.setFilterLimits(intervals[tail_index + 1], intervals[max_index + 1] + 100);
+	pass.filter(*source_cloud);
+	//myVisualization<PT>(source_cloud, "cut");
+	return true;
+}
+
+template<typename PT>
+int filterByVolume(typename PointCloud<PT>::Ptr source_cloud) {
+	/*
+		0:舍弃
+		1:保留，无需镜像，直接通过
+		2:保留，需要镜像，返回镜像后的点云
+	*/
 	PointCloud<PT> left_cloud, right_cloud, middle_cloud;
 	PT min{}, max{};
 
+	// 如果整个点云都很短，不包括POI，直接丢弃
 	getMinMax3D(*source_cloud, min, max);
 	if ((max.x - min.x) < 500) {
-		return false;
+		return 0;
 	}
 
 	// 已经将脊柱移到x轴正方向，所以这里只需要判断y轴，将其分为左中右三部分判断
@@ -517,106 +571,149 @@ bool filterByVolume(typename PointCloud<PT>::Ptr source_cloud) {
 	pass.setFilterLimits(-50, 50);
 	pass.filter(middle_cloud);
 
-	// 判断脊柱长度，不然没有办法进行镜像操作，最起码要有400mm
+	// 判断脊柱长度，不然没有办法进行镜像操作，最起码要有500mm
 	getMinMax3D(middle_cloud, min, max);
-	if ((max.x - min.x) < 500) {
-		return false;
-	}
+	if ((max.x - min.x) < 500) { return 0; }
 
+
+	// 排除脊柱定位异常的情况，比如脊柱不完整，在通过最大Z值定位脊柱时会定位到点云边界
+	// 此时会出现只有轴的一侧点多，另一侧点极少，所以需要排除这种情况
 	getMinMax3D(right_cloud, min, max);
-	if ((max.x - min.x) < 200 || (max.y - min.y) < 200) {
-		return false;
-	}
+	if ((max.x - min.x) < 200 || (max.y - min.y) < 200) { return 0; }
 
 	getMinMax3D(left_cloud, min, max);
-	if ((max.x - min.x) < 200 || (max.y - min.y) < 200) {
-		return false;
+	if ((max.x - min.x) < 200 || (max.y - min.y) < 200) { return 0; }
+
+	// 少的一端用于判断是否需要镜像，多的一端用于镜像
+	PointCloud<PT> less_cloud, more_cloud;
+	less_cloud = left_cloud.points.size() > right_cloud.points.size() ? right_cloud : left_cloud;
+	less_cloud = less_cloud + middle_cloud;
+	more_cloud = left_cloud.points.size() > right_cloud.points.size() ? left_cloud : right_cloud;
+	more_cloud = right_cloud + middle_cloud;
+	if (less_cloud.points.size() < 0.5 * more_cloud.points.size()) {
+		//	// 生成镜像点云
+		//	typename PointCloud<PT>::Ptr cloud_mirror(new PointCloud<PT>());
+		//	*cloud_mirror = more_cloud;
+		//	for (auto& point : cloud_mirror->points) {
+		//		point.y = -point.y; // 对 y 坐标取反
+		//	}
+
+		//	// 使用ICP算法进行配准
+		//	IterativeClosestPoint<PT, PT> icp;
+		//	icp.setInputSource(cloud_mirror);
+		//	icp.setInputTarget(more_cloud.makeShared());
+		//	PointCloud<PT> Final;
+		//	icp.align(Final);
+
+		//	// 检查配准是否成功
+		//	if (icp.hasConverged()) {
+		//		std::cout << "ICP has converged, score is " << icp.getFitnessScore() << std::endl;
+		//		std::cout << "Transformation matrix: \n" << icp.getFinalTransformation() << std::endl;
+
+		//		// 将变换应用到镜像点云
+		//		transformPointCloud(*cloud_mirror, *cloud_mirror, icp.getFinalTransformation());
+
+		//		// 合并点云
+		//		PointCloud<PointXYZ>::Ptr cloud_combined(new PointCloud<PointXYZ>());
+		//		*cloud_combined = more_cloud + *cloud_mirror;
+
+		//		//// 可视化合并后的点云
+		//		//visualization::PCLVisualizer viewer("Cloud Viewer");
+		//		//visualization::PointCloudColorHandlerCustom<PointXYZ> mirror_color(cloud_combined, 255, 0, 0);
+		//		//viewer.addPointCloud<PointXYZ>(cloud_combined, mirror_color, "combined cloud");
+
+		//		//while (!viewer.wasStopped()) {
+		//		//	viewer.spinOnce();
+		//		//}
+		return 2;
 	}
-	return true;
+	//}
+	return 1;
 }
 
 template<typename PT>
-bool isSymmetric(typename PointCloud<PT>::Ptr source_cloud) {
-	//typename PointCloud<PT>::Ptr xyz_cloud(new PointCloud<PT>);
-	//copyPointCloud(*source_cloud, *xyz_cloud);
-	//// 为点云估计法线
-	//NormalEstimation<PT, Normal> ne;
-	//ne.setInputCloud(xyz_cloud);
-	//typename search::KdTree<PT>::Ptr tree(typename new search::KdTree<PT>());
-	//ne.setSearchMethod(tree);
-	//PointCloud<Normal>::Ptr normals(new PointCloud<Normal>);
-	//ne.setRadiusSearch(30); // 设置法线估计半径
-	//ne.compute(*normals);
+int isComplete(PointCloud<PointXYZ>::Ptr source_cloud) {
+	//myVisualization<PT>(source_cloud, "origin tail");
+	PT min{}, max{}, point{};
+	typename PointCloud<PT>::Ptr hip_cloud(new PointCloud<PT>);
+	getMinMax3D(*source_cloud, min, max);
+	for (int i = 0; i < source_cloud->points.size(); i++) {
+		if (source_cloud->points[i].x < min.x + 100)
+		{
+			point = source_cloud->points[i];
+			point.z = 0;
+			hip_cloud->points.push_back(point);
+		}
+	}
 
-	//// 计算曲率
-	//PrincipalCurvaturesEstimation<PT, Normal, PrincipalCurvatures> pc;
-	//pc.setInputCloud(xyz_cloud);
-	//pc.setInputNormals(normals);
-	//pc.setRadiusSearch(30);
-	//PointCloud<PrincipalCurvatures>::Ptr principal_curvatures(new PointCloud<PrincipalCurvatures>);
-	//pc.compute(*principal_curvatures);
+	// 通过凸包判断是否完整
+	ConvexHull<PT> hull;
+	hull.setInputCloud(hip_cloud);
+	hull.setDimension(2); /*设置凸包维度*/
+	std::vector<Vertices> polygons; /*用于保存凸包顶点*/
+	typename PointCloud<PT>::Ptr surface_hull(new PointCloud<PT>);
+	typename PointCloud<PT>::Ptr tail_hull(new PointCloud<PT>);
+	hull.reconstruct(*surface_hull, polygons);
 
-	//std::vector<CURVATURE> curvatures;
-	//CURVATURE curvature{};
-	//float avg_curvature;
-	//for (size_t i = 0; i < principal_curvatures->points.size(); ++i) {
-	//	PrincipalCurvatures principal_curvature = principal_curvatures->points[i];
-	//	avg_curvature = (principal_curvature.pc1 + principal_curvature.pc2) / 2.0;
-	//	curvature.index = i;
-	//	curvature.curvature = avg_curvature;
-	//	curvatures.push_back(curvature);
-	//}
-	//std::sort(curvatures.begin(), curvatures.end(), [](CURVATURE a, CURVATURE b) {
-	//	return a.curvature > b.curvature;
-	//	});
+	getMinMax3D(*surface_hull, min, max);
+	for (int i = 0; i < surface_hull->points.size(); i++) {
+		if (surface_hull->points[i].x < max.x - 10) {
+			tail_hull->points.push_back(surface_hull->points[i]);
+		}
+	}
 
-	//typename PointCloud<PT>::Ptr selected_cloud(typenmae new PointCloud<PT>);
-	//int n = 5000;
-	//for (int i = 0; i < n; i++)
-	//{
-	//	selected_cloud->push_back(source_cloud->points[curvatures[i].index]);
-	//}
-	////myVisualization(selected_cloud, "selected");
+	// 计算边界的曲率或拟合误差
+	// 简单的方法是拟合二次曲线或多项式，然后计算拟合误差
+	Eigen::MatrixXd A(tail_hull->points.size(), 3);
+	Eigen::VectorXd b(tail_hull->points.size());
+	for (size_t i = 0; i < tail_hull->points.size(); ++i) {
+		A(i, 0) = tail_hull->points[i].y * tail_hull->points[i].y;
+		A(i, 1) = tail_hull->points[i].y;
+		A(i, 2) = 1.0;
+		b(i) = tail_hull->points[i].x;
+	}
 
-	return true;
-}
+	Eigen::VectorXd coeffs = A.colPivHouseholderQr().solve(b);
+	double fit_error = (A * coeffs - b).norm();
+	//cout << fit_error << " ";
+	if (fit_error < 15) { return 1; }
+	else { return 0; }
 
-template<typename PT>
-PointCloud<PT> segCloud(typename PointCloud<PT>::Ptr source_cloud) {
+	int vertices_num = polygons[0].vertices.size();
+	// Visualization
+	visualization::PCLVisualizer::Ptr viewer(new visualization::PCLVisualizer("3D Viewer"));
+	viewer->setBackgroundColor(0, 0, 0);
+	viewer->addCoordinateSystem(1000.0);
+	// Add the original point cloud
+	visualization::PointCloudColorHandlerCustom<PointXYZ> cloud_color_handler(hip_cloud, 255, 255, 255);
+	viewer->addPointCloud<PointXYZ>(hip_cloud, cloud_color_handler, "original cloud");
+	viewer->setPointCloudRenderingProperties(visualization::PCL_VISUALIZER_POINT_SIZE, 1, "original cloud");
 
-	cout << "1";
-	// 加载模板FPFH描述子
-	PointCloud<FPFHSignature33>::Ptr tem_descriptors(new PointCloud<FPFHSignature33>);
-	io::loadPCDFile("10008-fpfh.pcd", *tem_descriptors);
-	cout << "1.1";
-	// 计算点云FPFH描述子
-	PointCloud<FPFHSignature33>::Ptr source_descriptors(new PointCloud<FPFHSignature33>);
-	computeFPFH(source_descriptors, source_cloud);
+	// Add the convex hull
+	visualization::PointCloudColorHandlerCustom<PointXYZ> hull_color_handler(tail_hull, 255, 0, 0);
+	viewer->addPointCloud<PointXYZ>(tail_hull, hull_color_handler, "hull cloud");
+	viewer->setPointCloudRenderingProperties(visualization::PCL_VISUALIZER_POINT_SIZE, 2, "hull cloud");
 
-	cout << "2";
-	// 特征匹配
-	registration::CorrespondenceEstimation<FPFHSignature33, FPFHSignature33> est;
-	est.setInputSource(source_descriptors);
-	est.setInputTarget(tem_descriptors);
-	CorrespondencesPtr correspondences(new Correspondences);
-	est.determineCorrespondences(*correspondences);
+	// 创建拟合曲线的点云
+	typename PointCloud<PT>::Ptr fit_curve(new PointCloud<PT>);
+	for (double y = min.y; y <= max.y; y += 1) { // 假设x范围在[-1, 1]
+		double x = coeffs[0] * y * y + coeffs[1] * y + coeffs[2];
+		fit_curve->points.push_back(PT(x, y, 0));
+	}
 
-	cout << "3";
-	// 分割
-	typename PointCloud<PT>::Ptr segmented_cloud(new PointCloud<PT>);
-	ExtractIndices<PT> extract;
-	//std::sort(correspondences->begin(), correspondences->end(), [](Correspondence a, Correspondence b) {
-	//	return a.distance > b.distance;
-	//	});
+	// 添加拟合曲线到可视化对象
+	pcl::visualization::PointCloudColorHandlerCustom<PT> curve_color(fit_curve, 255, 0, 0);
+	viewer->addPointCloud<PT>(fit_curve, curve_color, "fit curve");
 
-	for (const auto& correspondence : *correspondences)
+	// Start the visualization loop
+	while (!viewer->wasStopped())
 	{
-		if (correspondence.distance < 50)
-			segmented_cloud->points.push_back(source_cloud->points[correspondence.index_query]);
+		viewer->spinOnce(100);
+		std::this_thread::sleep_for(std::chrono::milliseconds(100));
 	}
-	segmented_cloud->width = segmented_cloud->points.size();
-	segmented_cloud->height = 1;
-	segmented_cloud->is_dense = true;
-
-	return segmented_cloud;
+	if (vertices_num < 35) {
+		//cout << vertices_num;
+		return 0;
+	}
+	return 1;
 }

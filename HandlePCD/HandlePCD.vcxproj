@@ -42,7 +42,7 @@
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
-    <CharacterSet>MultiByte</CharacterSet>
+    <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
@@ -158,10 +158,15 @@
     <ClCompile Include="GetFeature.hpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="GetObj.hpp" />
+    <ClCompile Include="utils.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="GetFeature.h" />
-    <ClInclude Include="GetObj.h" />
+    <ClInclude Include="DBSCAN_kdtree.h" />
+    <ClInclude Include="DBSCAN_precomp.h" />
+    <ClInclude Include="DBSCAN_simple.h" />
+    <ClInclude Include="nanoflann.hpp" />
+    <ClInclude Include="NormalChangeRateEstimate.hpp" />
+    <ClInclude Include="utils.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
