@@ -1,21 +1,40 @@
 #define _CRT_SECURE_NO_WARNINGS
 #define LIMIT_FRAME 30
 #include "GetPcd.h"
-#include <stdio.h>
-#include <iostream>
-#include <stdlib.h>
-#include <k4a/k4a.hpp>
-#include <cstdlib>
-#include <fstream>
-#include <opencv2/opencv.hpp>
-#include <direct.h>
 #include <Windows.h>
+#include <algorithm>
+#include <core/hal/interface.h>
+#include <core/mat.hpp>
+#include <direct.h>
+#include <Eigen/Core>
+#include <Eigen/Geometry>
+#include <Eigen/src/Core/Matrix.h>
+#include <Eigen/src/Core/MatrixBase.h>
+#include <Eigen/src/Geometry/AngleAxis.h>
+#include <Eigen/src/Geometry/Transform.h>
+#include <filesystem>
+#include <fstream>
+#include <imgcodecs.hpp>
+#include <io.h>
+#include <iosfwd>
+#include <iostream>
+#include <k4a/k4a.h>
+//#include <k4a/k4a.hpp>
+#include <k4arecord/playback.h>
+#include <k4arecord/types.h>
+#include <minwindef.h>
+#include <opencv2/opencv.hpp>
+#include <pcl/common/impl/common.hpp>
+#include <pcl/common/transforms.h>
+#include <pcl/filters/passthrough.h>
+#include <pcl/impl/point_types.hpp>
+#include <pcl/io/pcd_io.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
-#include <pcl/io/pcd_io.h>
-#include <filesystem>
-#include <algorithm>
-#include "AboutCamera.h"
+#include <stdio.h>
+#include <string>
+#include <thread>
+#include <vector>
 
 using namespace std;
 using namespace pcl;
@@ -41,7 +60,8 @@ typedef struct IMAGE_TIME {
 }IMAGETIME;
 
 
-int video2Txt(string filename, int start_second) {
+
+int video2Txt(std::string filename, int start_second) {
 	string temp = "../Video/0111/" + filename;
 	const char* path = temp.c_str();	//输入的文件路径
 	int no_frame = 0;				//帧序号，从0开始
@@ -259,14 +279,14 @@ int video2Txt(string filename, int start_second) {
 					if (0 != _access(outpath_rgbd.c_str(), 0)) {
 						_mkdir(outpath_rgbd.c_str());
 					}
-					string outfile_rgbd = outpath_rgbd + to_string(no_frame) + ".png";
+					string outfile_rgbd = outpath_rgbd + std::to_string(no_frame) + ".png";
 					imwrite(outfile_rgbd, cv_rgbdImage_8U);
 
 					//输出txt点云
 					if (0 != _access(outpath_txt.c_str(), 0)) {
 						_mkdir(outpath_txt.c_str());
 					}
-					string outfile_txt = outpath_txt + to_string(no_frame) + ".txt";
+					string outfile_txt = outpath_txt + std::to_string(no_frame) + ".txt";
 					fp = fopen(outfile_txt.c_str(), "w");//在项目目录下输出文件名
 					//fprintf(fp, "%d\n", i); // 点云总数
 					for (int j = 0; j < i; j++)
@@ -308,26 +328,31 @@ Exit:
 
 KinectRecord::KinectRecord(int length) {
 	handle = NULL;
-	trans_handle = NULL;
 	capture = NULL;
 	this->length = length;
 	start_frame = new int[length];
 }
 
+KinectRecord::~KinectRecord()
+{
+
+}
+
 int KinectRecord::initRecord(string dirname, string filename, int start_second[]) {
 	this->filename = filename;
 	this->dirname = dirname;
-	string inPath = "E:/luowenkuo/Video/" + dirname + "/" + filename + ".mkv";
+	string inPath = "F:/luowenkuo/Video/" + dirname + "/" + filename + ".mkv";
 	//string temp = "../RecordVideo/" + filename;
 	const char* path = inPath.c_str();	//输入的文件路径
 
-	string outPath = "../PCD/origin/" + dirname + "/" + filename;
+	string outPath = "F:/luowenkuo/PCD/origin/" + dirname + "/" + filename;
+	//string outPath = "../IMU/" + dirname + "/" + filename + ".txt";
 	const char* destPath = outPath.c_str();	//输出的文件路径
 
-	//if (_access(destPath, 0) == 0) { //判断该文件夹是否存在
-	//	cout << "已跳过:" << filename << endl;
-	//	return 0;
-	//}
+	if (_access(destPath, 0) == 0) { //判断该文件夹是否存在
+		cout << "已跳过:" << filename << endl;
+		return 0;
+	}
 
 	for (int i = 0; i < length; i++)
 	{
@@ -338,7 +363,7 @@ int KinectRecord::initRecord(string dirname, string filename, int start_second[]
 	result = k4a_playback_open(path, &handle);
 	if (result != K4A_RESULT_SUCCEEDED)
 	{
-		printf("Failed to open file: %s\n", path);
+		cout << "Failed to open file: %s\n" << path;
 		k4a_playback_close(handle);
 		handle = NULL;
 
@@ -350,7 +375,7 @@ int KinectRecord::initRecord(string dirname, string filename, int start_second[]
 	k4a_playback_set_color_conversion(handle, K4A_IMAGE_FORMAT_COLOR_BGRA32);
 	if (result != K4A_RESULT_SUCCEEDED)
 	{
-		printf("Failed to get record configuration for file: device%s\n", path);
+		cout << "Failed to get record configuration for file: device%s\n" << path;
 		k4a_playback_close(handle);
 		handle = NULL;
 
@@ -358,7 +383,7 @@ int KinectRecord::initRecord(string dirname, string filename, int start_second[]
 	}
 	//获取校准数据
 	if (k4a_playback_get_calibration(handle, &calibration)) {
-		printf("Failed to get calibration\n");
+		cout << "Failed to get calibration\n";
 	}
 	//获取准换句柄
 	trans_handle = k4a_transformation_create(&calibration);
@@ -455,15 +480,16 @@ int KinectRecord::getData(enum DATA_TYPE type) {
 		k4a_capture_release(capture);
 	}
 	std::cout << "开始处理：" << filename << "\n";
-	//Py_SetPythonHome(L"D:\\anaconda3\\envs\\BCS"); // 定义python解释器
-	//Py_Initialize(); // 初始化python接口
+
 	std::vector<std::thread> threads;
 	vector<MYIMUSAMPLE> my_imu_samples{};
+	my_imu_samples.reserve(LIMIT_FRAME * length);
 	k4a_imu_sample_t imu_sample;
 
 	for (int i = 0; i < length; i++)
 	{
 		vector<IMAGETIME> depth_image_timestamps;
+		my_imu_samples.reserve(LIMIT_FRAME * length);
 		IMAGETIME depth_iamge_timestamp{};
 
 		// 跳过无用帧
@@ -481,15 +507,15 @@ int KinectRecord::getData(enum DATA_TYPE type) {
 
 			if (stream_result == K4A_STREAM_RESULT_EOF)
 			{
-				printf("ERROR: Recording file is empty: %s\n", path);
+				cout << "ERROR: Recording file is empty.";
 				result = K4A_RESULT_FAILED;
-				return -1;
+				goto Exit;
 			}
 			else if (stream_result == K4A_STREAM_RESULT_FAILED)
 			{
-				printf("ERROR: Failed to read first capture from file: %s\n", path);
+				cout << "ERROR: Failed to read first capture from file.";
 				result = K4A_RESULT_FAILED;
-				return -1;
+				goto Exit;
 			}
 
 			k4a_image_t depth_image = k4a_capture_get_depth_image(capture);
@@ -505,23 +531,24 @@ int KinectRecord::getData(enum DATA_TYPE type) {
 			my_imu_sample.imu_sample = imu_sample;
 			my_imu_samples.push_back(my_imu_sample);
 
-			k4a_image_t trans_color_image = NULL;
-			//k4a_image_t trans_depth_image = NULL;
-			trans_color_image = getTransColorImage(depth_image, color_image, cur_frame);
-			//trans_depth_image = getTransDepthImage(depth_image, color_image, cur_frame);
-
+			k4a_image_t trans_color_image = getTransColorImage(depth_image, color_image, cur_frame);
+			//k4a_image_release(trans_color_image);
+			//k4a_image_release(color_image);
+			//k4a_image_release(depth_image);
 			if (type == TXT || type == ALL) {
-				k4a_image_t point_cloud_image = NULL;
-				point_cloud_image = getPointCloudImage(depth_image, color_image);
+				k4a_image_t point_cloud_image = getPointCloudImage(depth_image, color_image);
+				Eigen::Vector3d v = { imu_sample.acc_sample.v[1],-1.0 * imu_sample.acc_sample.v[2],imu_sample.acc_sample.v[0] };
+
 				n++;
-				threads.emplace_back(&KinectRecord::saveTXT, this, point_cloud_image, depth_image, trans_color_image, cur_frame);
+				threads.emplace_back(&KinectRecord::saveTXT, this, point_cloud_image, cur_frame, v);
+				//saveTXT(point_cloud_image, cur_frame, v);
+				k4a_image_release(trans_color_image);
+				k4a_image_release(color_image);
+				k4a_image_release(depth_image);
 			}
 			//if (type == RGBD || type == ALL) {
 			//	saveRGBD(trans_color_image, cur_frame);
 			//}
-			k4a_image_release(color_image);
-			k4a_image_release(depth_image);
-
 			if (n % 6 == 0) {
 				//等待所有线程执行完毕
 				for (auto& thread : threads) {
@@ -531,24 +558,22 @@ int KinectRecord::getData(enum DATA_TYPE type) {
 			}
 			cur_frame++;
 		}
-		//pyTxt2Pcd(filename, start_frame[i]);
-		if (type == IMU || type == ALL)
-			saveIMU(my_imu_samples);
-
-		for (auto& thread : threads) {
-			thread.join();
+	Exit:
+		if (threads.size() > 0) {
+			for (auto& thread : threads) {
+				thread.join();
+			}
+			threads.clear();
 		}
-		threads.clear();
+		if (type == IMU || type == ALL) {
+			saveIMU(my_imu_samples);
+		}
 		std::cout << start_frame[i] / 30 << ' ';
 	}
-	for (auto& thread : threads) {
-		thread.join();
-	}
-	threads.clear();
-	//Py_Finalize(); //结束python接口
-	std::cout << "处理完成：" << filename << "\n";
-	return 1;
 
+	std::cout << "处理完成：" << filename << "\n";
+	k4a_playback_close(handle);
+	return 1;
 }
 
 int KinectRecord::saveRGBD(k4a_image_t trans_image, int cur_frame) {
@@ -568,22 +593,24 @@ int KinectRecord::saveRGBD(k4a_image_t trans_image, int cur_frame) {
 	if (0 != _access(outpath_rgbd.c_str(), 0)) {
 		_mkdir(outpath_rgbd.c_str());
 	}
-	string png_name = to_string(cur_frame) + ".png";
+	string png_name = std::to_string(cur_frame) + ".png";
 	string outfile_rgbd = outpath_rgbd + png_name;
 	imwrite(outfile_rgbd, cv_rgbdImage_8U);
 	//cout << png_name << endl;
 	return 1;
 }
 
-int KinectRecord::saveTXT(k4a_image_t point_cloud_image, k4a_image_t depth_image, k4a_image_t color_image, int cur_frame) {
-	if (point_cloud_image == NULL || depth_image == NULL) {
+//int KinectRecord::saveTXT(k4a_image_t point_cloud_image, k4a_image_t depth_image, k4a_image_t color_image, int cur_frame, Eigen::Vector3d v) {
+int KinectRecord::saveTXT(k4a_image_t point_cloud_image, int cur_frame, Eigen::Vector3d v) {
+	if (point_cloud_image == NULL) {
 		cout << "image is null" << endl;
 		return -1;
 	}
 	int width = k4a_image_get_width_pixels(point_cloud_image);
-	int height = k4a_image_get_height_pixels(color_image);
+	int height = k4a_image_get_height_pixels(point_cloud_image);
 
 	int16_t* point_cloud_image_data = (int16_t*)(void*)k4a_image_get_buffer(point_cloud_image);//访问深度图像缓存区
+
 	//uint8_t* depth_image_data = k4a_image_get_buffer(depth_image);
 	//uint8_t* color_buffer = k4a_image_get_buffer(color_image);		//访问彩色图像缓存区
 
@@ -591,13 +618,13 @@ int KinectRecord::saveTXT(k4a_image_t point_cloud_image, k4a_image_t depth_image
 
 	int pos = filename.find(".");
 	string record_name = filename.substr(0, pos);
-	string txt_name = filename + "-" + to_string(cur_frame) + ".pcd";
+	string txt_name = filename + "-" + std::to_string(cur_frame) + ".pcd";
 
 	//string txt_dir = "./PointCloudData/" + dirname + "/" + filename + "/";
-	string txt_dir = "../PCD/origin/" + dirname + "/" + filename + "/";
-	//if (0 != _access(txt_dir.c_str(), 0)) {
-	//	_mkdir(txt_dir.c_str());
-	//}
+	string txt_dir = "F:/luowenkuo/PCD/origin/" + dirname + "/" + filename + "/";
+	if (0 != _access(txt_dir.c_str(), 0)) {
+		_mkdir(txt_dir.c_str());
+	}
 
 	//FILE* fp = NULL;
 	string txt_path = txt_dir + txt_name;
@@ -606,6 +633,8 @@ int KinectRecord::saveTXT(k4a_image_t point_cloud_image, k4a_image_t depth_image
 
 	int order;
 	pcl::PointXYZ point;
+	std::vector<pcl::PointXYZ> points;
+	points.reserve(200000);
 	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
 
 	for (int row = 0; row < height; row++) {
@@ -620,18 +649,55 @@ int KinectRecord::saveTXT(k4a_image_t point_cloud_image, k4a_image_t depth_image
 			//point.g = color_buffer[4 * order + 1];
 			//point.r = color_buffer[4 * order + 2];
 
-			if (point.x == 0 && point.y == 0 && point.z == 0 || point.z > 1500) {
+			if ((point.x == 0 && point.y == 0 && point.z == 0)) {
 				continue;
 			}
 
 			//point.z += 1000; // 加相机高度
 
-			cloud->push_back(point);
+			points.push_back(point);
 
 			//fprintf(fp, "%d %d %d %d %d %d\n", point.x, point.y, point.z, rgb.r, rgb.g, rgb.b);
 		}
 	}
-	pcl::io::savePCDFileASCII(txt_path, *cloud);
+	k4a_image_release(point_cloud_image);
+
+	cloud->reserve(points.size());
+	cloud->insert(cloud->end(), points.begin(), points.end());
+
+	// 将目标向量转化为单位向量
+	v.normalize();
+	Eigen::Vector3d axis;
+	double angle;
+	// 由于我们要将Z轴旋转到向量v的位置，因此我们需要找到从v到Z轴的旋转轴
+	// 这可以通过计算两个向量的叉积来得到，叉积将垂直于旋转平面
+	axis = v.cross(Eigen::Vector3d::UnitZ());
+	axis.normalize();
+	// 计算旋转角度，这里我们使用acos来计算夹角，并将其转换为弧度
+	angle = acos(v.dot(Eigen::Vector3d::UnitZ()));
+	// 创建仿射矩阵
+	Eigen::Affine3d transform = Eigen::Affine3d::Identity();
+	transform.translation() << 0, 0, 0; // 平移
+	transform.rotate(Eigen::AngleAxisd(angle, axis)); // 旋转
+	transformPointCloud(*cloud, *cloud, transform);
+
+	// 限制高度
+	PointXYZ min{}, max{};
+	PassThrough<PointXYZ> pass;
+	getMinMax3D(*cloud, min, max);
+
+	pass.setInputCloud(cloud);
+	pass.setFilterFieldName("x");
+	pass.setFilterLimits(min.x, min.x + 1000);
+	pass.filter(*cloud);
+
+	getMinMax3D(*cloud, min, max);
+	pass.setInputCloud(cloud);
+	pass.setFilterFieldName("z");
+	pass.setFilterLimits(min.z, min.z + 500);
+	pass.filter(*cloud);
+
+	pcl::io::savePCDFileBinary(txt_path, *cloud);
 	cloud.reset();
 	return 1;
 }
@@ -640,8 +706,12 @@ int KinectRecord::saveIMU(vector<MYIMUSAMPLE> my_imu_samples) {
 	string out_dir = "../IMU/" + dirname + "/";
 	string filepath = out_dir + filename + ".txt";
 
+	if (0 != _access(out_dir.c_str(), 0)) {
+		_mkdir(out_dir.c_str());
+	}
+
 	k4a_imu_sample_t imu_sample{};
-	ofstream f(filepath, ios::ate);
+	std::ofstream f(filepath, std::ios::ate);
 	for (MYIMUSAMPLE my_imu_sample : my_imu_samples)
 	{
 		imu_sample = my_imu_sample.imu_sample;
@@ -653,82 +723,9 @@ int KinectRecord::saveIMU(vector<MYIMUSAMPLE> my_imu_samples) {
 	return 1;
 }
 
-Py::Py() {
-	Py_SetPythonHome(L"D:\\environments\\miniconda3\\envs\\BF"); // 定义python解释器
-	Py_Initialize(); // 初始化python接口
-
-	string command = "conda activate BF";
-	system(command.c_str()); // 激活conda环境
-
-	PyRun_SimpleString("import sys");
-	PyRun_SimpleString("import os");
-	PyRun_SimpleString("sys.path.append('Script')"); // 定义路径
-	PyRun_SimpleString("print(os.getcwd())");
-
-	if (pModule = PyImport_ImportModule("get_pcd")) {
-		if (pFunc = PyObject_GetAttrString(pModule, "txt_pcd")) {
-		}
-		else {
-			cout << "导入失败" << endl;
-		}
-	}
-	else {
-		cout << "文件失败" << endl;
-		PyErr_Print();
-	}
-}
-void Py::closePy() {
-	Py_Finalize(); //结束python接口
-}
-
-void Py::pyTxt2Pcd(string txt_dir, int start_frame) {
-	PyObject* result;
-	const char* txt_dirc = txt_dir.c_str();
-	cout << txt_dirc << endl;
-
-	pArgs = PyTuple_New(2);
-	PyTuple_SetItem(pArgs, 0, Py_BuildValue("s", txt_dirc));
-	PyTuple_SetItem(pArgs, 1, Py_BuildValue("i", start_frame));
-
-	result = PyObject_CallObject(pFunc, pArgs); // 调用函数
-}
-
-void txt2Pcd(string record_name) {
-	string txt_path = "./PointCloudData/" + record_name + "/";
-	std::vector<std::string> txtFiles;
-
-	for (auto& v : directory_iterator(txt_path))
-	{
-		txtFiles.push_back(v.path().string());
-	}
-	// 启动多线程处理每个 txt 文件
-	std::vector<std::thread> threads;
-	int n_threads = 20;
-	cout << "开始处理：" << record_name << "\n";
-	int n_files = 0;
-	for (const auto& txtFile : txtFiles) {
-		n_files++;
-
-		threads.emplace_back([txtFile, record_name]() {
-			processTxt(txtFile, record_name);
-			});
-
-		if (n_files % n_threads == 0)
-		{
-			Sleep(5000);
-		}
-	}
-	// 等待所有线程执行完毕
-	for (auto& thread : threads) {
-		thread.join();
-	}
-
-	cout << "处理完成：" << record_name << "\n";
-
-}
 void processTxt(const std::string& txtFile, const std::string record_name) {
 	string filename = path(txtFile).filename().string();
-	string pcd_path = "..\\PCD\\origin\\0310\\" + record_name + "\\";
+	string pcd_path = "F:/luowenkuo/PCD/oorigin/" + record_name + "/";
 	if (0 != _access(pcd_path.c_str(), 0)) {
 		_mkdir(pcd_path.c_str());
 	}
@@ -775,7 +772,7 @@ int KinectRecord::getPCD(int mode) {
 	}
 	else if (mode == 2) {
 		//py.pyTxt2Pcd(filename, start_frame[0]);
-		txt2Pcd(filename);
+		//txt2Pcd(filename);
 	}
 	else if (mode == 3)
 	{
@@ -811,7 +808,7 @@ void KinectRecord::getIMU() {
 		}
 	}
 
-	ofstream f("./imutestoffset.txt", ios::app);
+	std::ofstream f("./imutestoffset.txt", std::ios::app);
 
 	for (int i = 0; i < imu_samples.size(); i++)
 	{

@@ -1,10 +1,8 @@
 ﻿#include "GetPcd.h"
-#include "AboutCamera.h"
 #include "pugixml.hpp"
 #include <iostream>
 #include <map>
-#include <thread>
-#include <vector>
+#include <string>
 
 using namespace std;
 int main() {
@@ -17,7 +15,7 @@ int main() {
 
 	// 创建一个 std::map 以存储数据
 	map<string, int> recordInfo;
-	string date = "0520";
+	string date = "0310";
 
 	// 从 XML 中读取数据并存储到 map 中
 	for (pugi::xml_node item : doc.child("info").find_child_by_attribute("data", "date", date.c_str()).children("item")) {
@@ -30,13 +28,11 @@ int main() {
 	string filename;
 	int length = 0;
 	int* second; //数组
-
-	//Py py;
 	for (const auto& pair : recordInfo) {
 		filename = pair.first;
 		length = pair.second;
 		second = new int[length];
-		for (int i = 0; i <= length; i++)
+		for (int i = 0; i < length; i++)
 		{
 			second[i] = i;
 		}
@@ -49,7 +45,7 @@ int main() {
 		2：转pcd
 		3: IMU
 		*/
-		record.getPCD(3);
+		record.getPCD(1);
 		//record.getRGBD();
 	}
 	//py.closePy();

@@ -1,4 +1,5 @@
 #include "AboutCamera.h"
+#include <cstdio>
 
 void PrintCalibrationFromFile(const char* path) {
 	//输出相机参数
