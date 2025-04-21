@@ -72,7 +72,7 @@ int main() {
 		int n = 0;
 		int total_files = pcdFiles.size();
 
-#pragma omp parallel for schedule(dynamic) reduction(+:n)
+		#pragma omp parallel for schedule(dynamic) reduction(+:n)
 		for (int i = 0; i < total_files; ++i) {
 			const auto& pcdFile = pcdFiles[i];
 			int pos1 = pcdFile.find_last_of("-");
@@ -98,7 +98,7 @@ int main() {
 			n++;
 
 			if (n % 30 == 0) {
-#pragma omp critical
+				#pragma omp critical
 				{
 					std::cout << n / 30 << " ";
 				}
@@ -198,7 +198,7 @@ void processPCD(const std::string& pcdFile, const std::string record_name, const
 	removeOtherObj<PointXYZ>(cloud, 1);
 	//end = clock();
 	//cout << (double)(end - start) / CLOCKS_PER_SEC << "\n";
-	//myVisualization<PointXYZ>(cloud, "source");
+	//myVisualization<PointXYZ>(cloud, "连通域分割");
 	//io::savePCDFileASCII(out_path + filename, *cloud);
 
 	//需要找到每一列最大Z值，所以需要先对点云进行下采样、连通域分割
