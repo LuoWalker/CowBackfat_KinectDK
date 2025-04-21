@@ -66,7 +66,7 @@ void myVisualization2(typename PointCloud<PT>::Ptr cloud1, typename PointCloud<P
 	Eigen::Affine3f transform = Eigen::Affine3f::Identity();
 	transform.translation() << 0.0, 0.0, 0.0;
 
-	viewer.addCoordinateSystem(1000.0, transform);
+	//viewer.addCoordinateSystem(1000.0, transform);
 	visualization::PointCloudColorHandlerCustom<PT> white(cloud1, 255, 255, 255);
 	viewer.addPointCloud<PT>(cloud1, white, "cloud1"); // 显示点云，其中fildColor为颜色显示
 	viewer.setPointCloudRenderingProperties(visualization::PCL_VISUALIZER_POINT_SIZE, 1, "cloud1");
@@ -74,6 +74,33 @@ void myVisualization2(typename PointCloud<PT>::Ptr cloud1, typename PointCloud<P
 	visualization::PointCloudColorHandlerCustom<PT> red(cloud2, 255, 0, 0);
 	viewer.addPointCloud<PT>(cloud2, red, "cloud2");
 	viewer.setPointCloudRenderingProperties(visualization::PCL_VISUALIZER_POINT_SIZE, 2, "cloud2");
+
+	while (!viewer.wasStopped()) {
+		viewer.spinOnce();
+	}
+}
+
+template<typename PT>
+void myVisualization3(typename PointCloud<PT>::Ptr cloud1, typename PointCloud<PT>::Ptr cloud2, typename PointCloud<PT>::Ptr cloud3, const char* window_name) {
+	visualization::PCLVisualizer viewer(window_name);
+	viewer.setBackgroundColor(0, 0, 0); // 设置背景色,RGB,0~1
+
+	// 定义变换矩阵
+	Eigen::Affine3f transform = Eigen::Affine3f::Identity();
+	transform.translation() << 0.0, 0.0, 0.0;
+
+	//viewer.addCoordinateSystem(1000.0, transform);
+	visualization::PointCloudColorHandlerCustom<PT> white(cloud1, 255, 255, 255);
+	viewer.addPointCloud<PT>(cloud1, white, "cloud1"); // 显示点云，其中fildColor为颜色显示
+	viewer.setPointCloudRenderingProperties(visualization::PCL_VISUALIZER_POINT_SIZE, 1, "cloud1");
+
+	visualization::PointCloudColorHandlerCustom<PT> red(cloud2, 255, 0, 0);
+	viewer.addPointCloud<PT>(cloud2, red, "cloud2");
+	viewer.setPointCloudRenderingProperties(visualization::PCL_VISUALIZER_POINT_SIZE, 2, "cloud2");
+
+	visualization::PointCloudColorHandlerCustom<PT> lred(cloud3, 254, 0, 0);
+	viewer.addPointCloud<PT>(cloud3, lred, "cloud3");
+	viewer.setPointCloudRenderingProperties(visualization::PCL_VISUALIZER_POINT_SIZE, 2, "cloud3");
 
 	while (!viewer.wasStopped()) {
 		viewer.spinOnce();
@@ -607,11 +634,13 @@ void find_and_remove_min_z_points(typename PointCloud<PT>::Ptr source_cloud, int
 		thre_tan = -1;
 		thre_interval_y = interval_max_y;
 	}
+	// 需要被判断的区间，valid_interval_index表示有重叠的区间的索引
 	std::vector<int> valid_interval_index;
 	for (int i = 0; i < interval_min_z.size(); i++) {
 		float width = interval_max_y[i].y - interval_min_y[i].y;
 		//if (width > (max.y - min.y) * 0.6) {
 			//if (comparator(operation(interval_min_z[i].y, 0.1 * width), thre_interval_y[i].y)) {
+		// 判断最低z值点是在中间还是在一侧，在一侧表明是点云边缘，并不是重叠部分
 		if (std::abs(interval_min_z[i].z - thre_interval_y[i].z) > 50) {
 			min_cloud->push_back(interval_min_z[i]);
 			interval_min_z[i].x = 99999;
@@ -646,6 +675,31 @@ void find_and_remove_min_z_points(typename PointCloud<PT>::Ptr source_cloud, int
 				min_extrema_count += 1;
 			}
 		}
+		//// 可视化点云和拟合曲线
+		//pcl::visualization::PCLVisualizer::Ptr viewer(new pcl::visualization::PCLVisualizer("3D Viewer"));
+		//viewer->setBackgroundColor(0, 0, 0);
+		//viewer->addPointCloud<pcl::PointXYZ>(source_cloud, "sample cloud");
+
+		//// 可视化拟合的曲线
+		//pcl::PointCloud<pcl::PointXYZ>::Ptr curve_cloud(new pcl::PointCloud<pcl::PointXYZ>);
+		//for (double y = min.y; y <= max.y; y += 1) { // 根据你的数据范围调整
+		//	double z = 0;
+		//	for (int i = 0; i <= degree; ++i) {
+		//		z += coefficients[i] * std::pow(y, i);
+		//	}
+		//	curve_cloud->points.emplace_back(index * gap, y, z); // x固定为0
+		//}
+
+		//pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> curve_color_handler(curve_cloud, 255, 0, 0);
+		//viewer->addPointCloud<pcl::PointXYZ>(curve_cloud, curve_color_handler, "curve");
+		//viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "curve");
+
+		//viewer->addPointCloud<pcl::PointXYZ>(min_cloud, curve_color_handler, "min_cloud");
+		//viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "min_cloud");
+
+		//while (!viewer->wasStopped()) {
+		//	viewer->spinOnce(100);
+		//}
 	}
 	//cout << count / valid_interval_index.size();
 	if (min_extrema_count * 1.0 / total_count * 1.0 < 0.5) {

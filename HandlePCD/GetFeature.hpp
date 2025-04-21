@@ -528,11 +528,25 @@ bool keyPointPosition(typename PointCloud<PT>::Ptr source_cloud) {
 
 	// 找到跨度最大的区间
 	int max_index = std::max_element(width.begin(), width.end()) - width.begin();
-	if (max_index < n / 2) { max_index = n - 2; }
+	//if (max_index < n / 2) { max_index = n - 2; }
+
+	typename PointCloud<PT>::Ptr tail_cloud(new PointCloud<PointXYZ>);
+	typename PointCloud<PT>::Ptr max_cloud(new PointCloud<PointXYZ>);
+	pass.setInputCloud(source_cloud);
+	pass.setFilterFieldName("x");
+	pass.setFilterLimits(intervals[tail_index - 1], intervals[tail_index + 1]);
+	pass.filter(*tail_cloud);
 
 	pass.setInputCloud(source_cloud);
 	pass.setFilterFieldName("x");
-	pass.setFilterLimits(intervals[tail_index + 1], intervals[max_index + 1] + 100);
+	pass.setFilterLimits(intervals[max_index + 9], intervals[max_index + 11]);
+	pass.filter(*max_cloud);
+
+	myVisualization3<PT>(source_cloud, tail_cloud, max_cloud, "tail");
+
+	pass.setInputCloud(source_cloud);
+	pass.setFilterFieldName("x");
+	pass.setFilterLimits(intervals[tail_index + 1], intervals[max_index + 11] + 50);
 	pass.filter(*source_cloud);
 	//myVisualization<PT>(source_cloud, "cut");
 	return true;
